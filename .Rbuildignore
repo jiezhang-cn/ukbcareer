@@ -1,0 +1,8 @@
+^BUNDLE-ACCESS\.md$
+^README\.md$
+^\.github$
+^\.gitignore$
+^.*\.Rproj$
+^\.Rproj\.user$
+^ukbcareer\.Rcheck$
+^.*\.tar\.gz$

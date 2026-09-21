@@ -1,0 +1,23 @@
+citHeader("To cite ukbcareer in publications, cite the paper it accompanies:")
+
+bibentry(
+  bibtype  = "Article",
+  title    = paste("Lifetime occupational histories associated divergent",
+                   "pathways to biological ageing and health outcomes"),
+  author   = person("Jie", "Zhang"),
+  year     = "2026",
+  journal  = "(in preparation)",
+  textVersion = paste(
+    "Zhang J, et al. (2026).",
+    "Lifetime occupational histories associated divergent pathways to",
+    "biological ageing and health outcomes. (in preparation)")
+)
+
+bibentry(
+  bibtype = "Manual",
+  title   = "ukbcareer: Lifetime Work-History Attributes for UK Biobank",
+  author  = person("Jie", "Zhang"),
+  year    = "2026",
+  note    = "R package version 0.1.0",
+  url     = "https://github.com/jiezhang-cn/ukbcareer"
+)

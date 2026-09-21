@@ -1,0 +1,34 @@
+# ── 绝不提交任何 UKB 数据 ──────────────────────────────────────────
+# 本仓库根在包目录下，所以 ../data、../server_sysnc、../dev/golden 天然在
+# 仓库树之外。下面几条是第二道防线：万一有人把数据拷进包目录里。
+*.csv
+*.tsv
+*.parquet
+*.pt
+*.ts
+*.npz
+*.npy
+*.rdata
+*.RData
+*.rds
+golden/
+data/
+bundle_*/
+
+# ── R 构建产物 ────────────────────────────────────────────────────
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rcheck/
+*.tar.gz
+src/*.o
+src/*.so
+src/*.dll
+inst/doc
+
+# ── 编辑器与系统 ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+*~
