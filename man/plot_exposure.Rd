@@ -2,26 +2,31 @@
 % Please edit documentation in R/viz-sample.R
 \name{plot_exposure}
 \alias{plot_exposure}
-\title{暴露画像：总体负荷 + agent 特异残差}
+\title{Plot occupational exposure profiles: overall load and agent-specific residuals}
 \usage{
 plot_exposure(x, by = "sex", metric = c("mean", "peak"))
 }
 \arguments{
-\item{x}{\link{ukb_career} 的返回值（需要 \code{exposure}）。}
+\item{x}{Output of \link{ukb_career} (must include \code{exposure}).}
 
-\item{by}{分组列。}
+\item{by}{Grouping column.}
 
-\item{metric}{\code{"mean"}（默认，时长归一）或 \code{"peak"}（复现旧口径）。}
+\item{metric}{\code{"mean"} (default, duration-normalised) or \code{"peak"}
+(reproduces the older definition).}
 }
 \value{
-一个 patchwork 拼图。
+A patchwork composite.
 }
 \description{
-左：每组的总体暴露负荷（棒糖图）。右：\strong{去掉总体水平之后}每个 agent 的残差
-热图。分两步是因为"哪些组暴露多"与"某组特别暴露于什么"是两个问题，
-混在一张热图里前者会主导后者。
+Left panel: the overall exposure load of each group (lollipop chart). Right
+panel: a heatmap of each agent's residual \strong{after removing the overall
+level}. The two steps answer two different questions -- "which groups are
+more exposed overall?" and "what is a given group unusually exposed to?".
+In a single heatmap the first would swamp the second.
 }
 \details{
-默认用 \verb{mean_*}（时长归一）而不是 \verb{peak_*}：峰值取 max，
-\strong{工作年数越多的人越容易碰到高值}，那是机会偏差不是暴露强度。
+By default the plot uses \verb{mean_*} (duration-normalised) rather than
+\verb{peak_*}. A peak is a maximum, so \strong{people with more working years have
+more chances to hit a high value} -- that is an opportunity bias, not
+exposure intensity.
 }

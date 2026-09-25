@@ -1,0 +1,72 @@
+url: https://jiezhang-cn.github.io/ukbcareer/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, articles, reference]
+    right: [search, github]
+  components:
+    intro:
+      text: Get started
+      href: articles/ukbcareer.html
+    articles:
+      text: Guides
+      menu:
+      - text: Getting started
+        href: articles/ukbcareer.html
+      - text: The derived variables
+        href: articles/variables.html
+
+reference:
+- title: Derive the variables
+  desc: From your UK Biobank CSV files to one row per person.
+  contents:
+  - ukb_career
+  - ukb_dictionary
+  - ukb_qc
+  - ukb_synth
+  - ukbcareer-package
+- title: Look at people
+  desc: One participant's whole work history, or many at once.
+  contents:
+  - plot_person
+  - ukb_report
+  - plot_career
+  - plot_states
+  - plot_camsis_track
+- title: Whole-sample pictures
+  contents:
+  - plot_chronogram
+  - plot_exposure
+  - plot_flows
+  - plot_moves
+  - plot_qc
+  - ukb_theme
+  - ukb_save
+- title: Sequence analysis
+  contents:
+  - ukb_states
+  - as_seqdef
+- title: Building blocks
+  desc: >
+    The steps ukb_career() runs for you. Use them directly when you need
+    finer control, for example a custom column mapping.
+  contents:
+  - ukb_worklife
+  - ukb_camsis
+  - ukb_movement
+  - ukb_encode
+  - ukb_typology
+- title: The optional model bundle
+  desc: Needed only for occupational mobility, the career representation and career types.
+  contents:
+  - ukb_bundle
+  - ukb_bundle_info
+  - plot_type_mix
+  - plot_type_profiles
+  - plot_baselines
+  - plot_soc_map
+  - ukb_distance_concentration
+  - plot_distance_concentration

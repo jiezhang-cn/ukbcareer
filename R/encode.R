@@ -17,9 +17,11 @@ TS_CHANNELS <- c("soc", "gap", "age", "dt", "n_jobs", "is_transition",
 #' @noRd
 .load_encoder <- function(bundle, sex) {
   if (!requireNamespace("torch", quietly = TRUE)) {
-    stop("Tier 2 requires torch: install.packages(\"torch\"); ",
-         "torch::install_torch()\n",
-         "  Tier 0 (work history, nine states, exposure, CAMSIS) and Tier 1 (mobility geometry) do not need it.")
+    stop("Encoding (ukb_encode) requires the torch package: ",
+         "install.packages(\"torch\"); torch::install_torch()\n",
+         "  Everything computed from your CSVs alone (work history, annual state ",
+         "sequences, exposure, CAMSIS) and the mobility measures (ukb_movement) ",
+         "do not need it.")
   }
   f <- .encoder_path(bundle, sex)
   m <- torch::jit_load(f)
@@ -34,20 +36,33 @@ TS_CHANNELS <- c("soc", "gap", "age", "dt", "n_jobs", "is_transition",
 }
 
 
-#' 冻结表征（latent）
+#' Encode careers into the frozen 192-dimensional representation
 #'
-#' 对用户样本跑一次前向，得到与论文同一个 192 维空间里的坐标。
-#' 全链条无随机性 —— 同一份输入必须逐位复现。
+#' Runs your sample once through the pre-trained career encoder, giving each
+#' person coordinates in the same 192-dimensional space as the paper. The
+#' whole pipeline is deterministic: the same input always reproduces
+#' bit-identical output. Requires the model bundle (with its encoder,
+#' `encoder_*.ts`) and the torch package.
 #'
-#' **绝不允许一个性别的样本过另一个性别的模型**：表征是分性别独立训练的
-#' （女性生涯结构不同，且 CAMSIS 量表本身性别特异）。本函数按 `sex` 分批，
-#' 各过自己的模型再合并。
+#' **People are never passed through the other sex's model.** The
+#' representations were trained separately for each sex (women's careers are
+#' structured differently, and the CAMSIS scale itself is sex-specific), so
+#' this function splits the sample by `sex`, runs each part through its own
+#' model, and then combines the results.
 #'
-#' @param x [ukb_worklife] 的返回值。
-#' @param bundle [ukb_bundle] 的返回值（需要 Tier 2）。
-#' @param batch_size 批大小。CPU 上 512 是个稳妥值。
-#' @param verbose 打印进度与表征的基本诊断。
-#' @return 在 `x` 上加一项 `latent`：`eid` / `sex` / `z001`…`z192`。
+#' With `verbose = TRUE` it also prints the effective rank of the
+#' representation (about 33 in the reference cohort; a value in single
+#' digits suggests collapse, while a somewhat lower value in a much smaller
+#' sample is just a sample-size effect).
+#'
+#' @param x Output of [ukb_worklife].
+#' @param bundle Output of [ukb_bundle]; it must contain the encoder.
+#' @param batch_size Batch size for the forward pass. 512 is a safe choice on
+#'   a CPU.
+#' @param verbose If `TRUE`, print progress and basic diagnostics of the
+#'   representation.
+#' @return `x` with an added element `latent`: columns `eid`, `sex` and
+#'   `z001` ... `z192`.
 #' @examples
 #' \dontrun{
 #' wl <- ukb_encode(wl, bundle = b)
@@ -58,7 +73,7 @@ ukb_encode <- function(x, bundle, batch_size = 512L, verbose = TRUE) {
   stopifnot(inherits(x, "ukbcareer_worklife"),
             inherits(bundle, "ukbcareer_bundle"))
   if (!isTRUE(bundle$tiers[["tier2"]])) {
-    stop("The bundle has no encoder_*.ts -> Tier 2 unavailable")
+    stop("Encoding unavailable: the bundle lacks encoder_*.ts (the model encoder)")
   }
   max_len <- as.integer(bundle$manifest$max_len %||% DEFAULTS$max_len)
   out <- list()

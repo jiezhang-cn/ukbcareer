@@ -2,7 +2,7 @@
 % Please edit documentation in R/viz-flows.R
 \name{plot_flows}
 \alias{plot_flows}
-\title{职业流动桑基图}
+\title{Sankey plot of occupational flows across age bands}
 \usage{
 plot_flows(
   x,
@@ -14,28 +14,70 @@ plot_flows(
 )
 }
 \arguments{
-\item{x}{已经过 \link{ukb_camsis} 的对象（需要 CAMSIS 作纵轴）。}
+\item{x}{An object that has been through \link{ukb_camsis} (CAMSIS scores are
+required).}
 
-\item{sex}{性别。\strong{必须分开画} —— 两性的 CAMSIS 是两个量表。}
+\item{sex}{Sex to plot. \strong{Plot each sex separately} -- CAMSIS is a
+different scale for women and men.}
 
-\item{bands}{年龄段边界。默认 \code{c(16, 30, 42, 54, 66)} → 四段
-16–29 / 30–41 / 42–53 / 54–65。第一段做到 29 岁是为了把入职期整个包住
-而不是切在边界上（参考队列首次变动中位 26/25 岁）。}
+\item{bands}{Age-band boundaries. The default \code{c(16, 30, 42, 54, 66)} gives
+four bands: 16-29, 30-41, 42-53, 54-65. The first band runs to 29 so that
+the whole labour-market entry period falls inside it rather than across a
+boundary (in the reference cohort the median age at first change is
+26 for women and 25 for men).}
 
-\item{node_level}{节点粒度：\code{"soc_l3"}（默认，81 组）/ \code{"soc_l2"}（25 组）/
-\code{"soc_l4"}（353 码）。}
+\item{node_level}{Node granularity: \code{"soc_l3"} (default, 81 groups),
+\code{"soc_l2"} (25 groups) or \code{"soc_l4"} (353 codes). With 353 codes, the
+individually traceable flows cover only 13\% (women) / 10\% (men) of moves;
+at the same threshold the share of between-group moves carried by
+traceable flows is 51\%/33\% for 353 codes, 88\%/78\% for 81 groups and
+99\%/99\% for 25 groups. 81 groups is the elbow; 25 groups is easiest to
+read but is already at major-group level.}
 
-\item{min_flow}{可单独追踪的带的人数阈值。\code{NULL} 时按实际格高自动算
-（0.25 pt 线宽对应多少人）。\strong{不要写死} —— 写死 19 在几千人的样本上会把
-九成移动误判成不可追踪。}
+\item{min_flow}{Minimum number of people for a flow to count as
+individually traceable. If \code{NULL} (default) it is computed from the
+actual column height (how many people a 0.25 pt line represents). \strong{Do
+not hard-code it}: a fixed value of 19 would label about 90\% of moves as
+untraceable in a sample of a few thousand people.}
 
-\item{label_top}{标注最粗的前几个节点。}
+\item{label_top}{Number of largest nodes to label.}
 }
 \value{
-一个 ggplot 对象（需要 ggalluvial）。
+A ggplot object (requires the ggalluvial package), with attributes
+\code{"flows"} (flow table; \code{kind} is \code{up} / \code{down} when the CAMSIS change
+exceeds 2 points, otherwise \code{lateral}, plus \code{stay}, \code{out} and, at
+\code{soc_l4} only, \code{regrade} for moves within the same 3-digit group),
+\code{"nodes"}
+(person-year-weighted CAMSIS position of each node), \code{"collapsed"}
+(number of within-band code changes collapsed) and \code{"coverage"} (share of
+moves in traceable flows).
 }
 \description{
-职业流动桑基图
+Draws an alluvial (sankey) diagram of observed occupation codes and
+observed transitions between them, across age bands, for one sex. It needs
+no model bundle -- only the annual panel from \link{ukb_worklife} and a CAMSIS
+table that you supply via \link{ukb_camsis}.
+}
+\details{
+Definitions that affect how the plot should be read:
+\itemize{
+\item Columns are \strong{age bands}, not "n-th transition".
+\item Within each band a person is assigned the code with the \strong{most
+person-years} (ties go to the later code). Several code changes within
+one band are therefore collapsed into one; the number collapsed is
+reported in the caption and in \code{attr(, "collapsed")}.
+\item \strong{Right truncation and not working are two separate nodes}:
+\code{"beyond observation"} (the band starts after the person's \code{career_end})
+and \code{"not in work"} (no employed person-years in the band). Merging them
+would make "observation ended" read as "left the labour market".
+\item CAMSIS scores are \strong{sex-specific}, so the two sexes are not measured on
+the same ruler: you can compare how much mobility is lateral, but not
+what occupation sits at a given height. Always plot the sexes separately.
+\item Thin flows are drawn as they are (not merged or dropped), so node heights
+always equal the sum of their flows. Whether a flow is individually
+traceable is a print-resolution issue and is reported as a single number
+(the share of moves carried by flows with at least \code{min_flow} people).
+}
 }
 \examples{
 \dontrun{

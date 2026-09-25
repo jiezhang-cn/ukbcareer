@@ -34,22 +34,61 @@
 }
 
 
-#' 职业移动几何
+#' Occupational mobility measures from the SOC embedding
 #'
-#' 在 353 个职业码的 192 维嵌入空间里，把每个人走过的轨迹算成六个量。
+#' Summarises each person's sequence of occupation changes as a path through
+#' the 192-dimensional embedding space of the 353 occupation codes, and
+#' returns six per-person measures alongside the number of changes. This needs
+#' only the SOC embedding in the model bundle (`soc_embed_*.parquet`), **not**
+#' the encoder weights or the torch package.
 #'
-#' **`n_moves == 0` 的人，距离类量一律记 `NA` 而不是 0。** 参考队列 36.8% 的人
-#' 一生只报一个职业码，他们的路程"恒为 0"不是"变动小"而是**没有定义** ——
-#' 把两种 0 混在一列里正是"缺失当零暴露"那类错误。下游必须分开处理，
-#' 所以本函数同时返回 `n_moves` 作为骨架变量。
+#' A change is counted between consecutive **working** years with different
+#' codes. A change across an intervening gap also counts (that is exactly
+#' "changing job"), but both ends must be working years. Transitions involving
+#' codes outside the embedding vocabulary are dropped and reported.
 #'
-#' @param x [ukb_worklife] 的返回值。
-#' @param bundle [ukb_bundle] 的返回值（需要 Tier 1）。
-#' @param level SOC 层级，默认 `"soc_l4"`（与论文一致）。
-#' @param verbose 打印无变动者比例与几个中位数。
-#' @return 在 `x` 上加一项 `movement`（一人一行）：
-#'   `n_moves`（骨架）、`mean_jump`、`net_displacement`、`max_single_jump`、
-#'   `first_move_age`、`first_move_rel`（距首个在职年的相对年数）、`last_move_age`。
+#' **For people with `n_moves == 0`, all distance measures are `NA`, not 0.**
+#' In the reference cohort 36.8% of people reported a single occupation code
+#' for life. Their "zero distance" does not mean "moved little" -- it is
+#' **undefined**. Mixing the two kinds of zero in one column is the same
+#' mistake as treating missing exposure as zero exposure. Handle them
+#' separately downstream; that is why `n_moves` is always returned as the
+#' backbone variable.
+#'
+#' @section Why only these measures:
+#' Pairwise distances between the 353 codes are **highly concentrated**: the
+#' coefficient of variation is only 0.10, 94.8% of code pairs lie in
+#' \[30, 45\], and the median is 37.6. In practice distances take three
+#' values: 0 (same code), about 19 (within the same L1 major group) and about
+#' 37 (anywhere else). As a result, several quantities that look geometric are
+#' just the number of changes k in disguise:
+#' * path length = k x single jump, about 37k (R^2 with k 0.90/0.92 for
+#'   women/men) -- not returned;
+#' * detour ratio = path / net, about k (R^2 0.93/0.94) -- **it is simply
+#'   another way of writing k**, so do not describe it as "how roundabout" a
+#'   career was; not returned;
+#' * straightness = net / path, about 1/k (R^2 0.81/0.84) -- the reciprocal of
+#'   the detour ratio, no new information; not returned.
+#'
+#' Of the measures kept, `mean_jump` and `net_displacement` have R^2 with k of
+#' at most 0.02 and are genuinely independent of it. Because
+#' `path = k x mean_jump`, "path length net of k" is just `mean_jump`, so
+#' nothing is lost by dropping path length. `first_move_age`,
+#' `first_move_rel` and `last_move_age` are the only measures not based on
+#' distance and are almost unrelated to k (rho about 0). See
+#' [ukb_distance_concentration] and [plot_distance_concentration].
+#'
+#' @param x Output of [ukb_worklife].
+#' @param bundle Output of [ukb_bundle]; it must contain the SOC embedding
+#'   (`soc_embed_*.parquet`).
+#' @param level SOC level; default `"soc_l4"` (as in the paper).
+#' @param verbose If `TRUE`, print the share of people who never changed code
+#'   and a few medians.
+#' @return `x` with an added element `movement` (one row per person):
+#'   `n_moves` (backbone), `mean_jump`, `net_displacement`,
+#'   `max_single_jump`, `first_move_age`, `first_move_rel` (years since the
+#'   person's first working year; less confounded by birth cohort than
+#'   absolute age) and `last_move_age`, plus `sex`.
 #' @examples
 #' \dontrun{
 #' wl <- ukb_movement(wl, bundle = b)
@@ -60,7 +99,8 @@ ukb_movement <- function(x, bundle, level = DEFAULTS$level, verbose = TRUE) {
   stopifnot(inherits(x, "ukbcareer_worklife"),
             inherits(bundle, "ukbcareer_bundle"))
   if (!isTRUE(bundle$tiers[["tier1"]])) {
-    stop("The bundle has no soc_embed_*.parquet -> Tier 1 unavailable")
+    stop("Mobility measures unavailable: the bundle lacks soc_embed_*.parquet ",
+         "(the SOC embedding)")
   }
   out <- list()
   for (sx in levels(x$cohort$sex)) {
@@ -137,14 +177,21 @@ ukb_movement <- function(x, bundle, level = DEFAULTS$level, verbose = TRUE) {
 }
 
 
-#' 码对距离的集中度
+#' Summarise how concentrated the distances between occupation codes are
 #'
-#' 报告 Tier 1 全部衍生量的**承重事实**。写文章时必须报这个数：
-#' 距离近乎三态（0 / ~19 同大类内 / ~37 换到别处），一切"绕路程度"的措辞都不成立。
+#' Computes all pairwise distances between occupation codes in the SOC
+#' embedding and prints their median, coefficient of variation, share within
+#' \[30, 45\] and quantiles. This is the **key fact behind every mobility
+#' measure** from [ukb_movement], and you should report it in any paper that
+#' uses them: distances are nearly three-valued (0 / about 19 within a major
+#' group / about 37 elsewhere), so any wording about how "roundabout" a career
+#' was does not hold.
 #'
-#' @param bundle [ukb_bundle] 的返回值。
-#' @param sex 性别。
-#' @return 一个含 `median` / `cv` / `frac_30_45` / `q` 的列表（不可见地打印）。
+#' @param bundle Output of [ukb_bundle] (needs the SOC embedding,
+#'   `soc_embed_*.parquet`).
+#' @param sex Sex.
+#' @return Invisibly, a list with `n_codes`, `median`, `cv`, `frac_30_45` and
+#'   `q` (quantiles). A summary is printed as a side effect.
 #' @export
 ukb_distance_concentration <- function(bundle, sex = "Female") {
   E <- .bundle_embed(bundle, sex)

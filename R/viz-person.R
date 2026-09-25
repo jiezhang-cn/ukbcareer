@@ -1,16 +1,18 @@
 # ══════════════════════════════════════════════════════════════════
-# 个人级可视化（一人一图）
+# 个人级可视化（一人一图）；完整的一页报告在 viz-report.R
 # ══════════════════════════════════════════════════════════════════
 
-#' 单人生涯时间线
+#' Compact career timeline for one person
 #'
-#' 年龄轴 × 职业码色带 + gap 状态 + 暴露标记 + `career_end` 竖线。
-#' 这是"详细个人工作史"最直接的呈现。
+#' A single strip along age coloured by the annual state (full-time,
+#' part-time, unemployed, ...), with the occupation code written where it
+#' changes, workplace exposures underneath and a dashed line at `career_end`.
+#' For the full one-page picture use [plot_person()].
 #'
-#' @param x [ukb_worklife] 或 [ukb_career] 的返回值。
-#' @param eid 要画的人。
-#' @param show_exposure 是否在下方画暴露强度条。
-#' @return 一个 ggplot 对象。
+#' @param x The result of [ukb_worklife()] or [ukb_career()].
+#' @param eid The person to draw.
+#' @param show_exposure Draw the exposure strips under the timeline.
+#' @return A ggplot object.
 #' @examples
 #' wl <- ukb_worklife(ukb_synth(n = 40), verbose = FALSE)
 #' plot_career(wl, eid = wl$cohort$eid[4])
@@ -103,17 +105,22 @@ plot_career <- function(x, eid, show_exposure = TRUE) {
 }
 
 
-#' 单人或多人的 9 状态色带
+#' Annual state sequences for one or many people
 #'
-#' @param x [ukb_worklife] / [ukb_career] 的返回值，或 [ukb_states] 的矩阵。
-#' @param eid 要画的人。`NULL` 时画全部（多人时用光栅化，见 `details`）。
-#' @param max_rows 最多画几行。超过时**等距抽样**而不是取前 n 个 ——
-#'   取前 n 个会系统性偏向 eid 小的人。
-#' @param sort_by 行序。`"length"` 按观察年数，`"first_state"` 按首个状态，
-#'   `"none"` 保持原序。
-#' @details 多人时每行只有不到一个像素高，所以用 `geom_raster`（光栅化）而不是
-#' 逐行画矩形 —— 后者在几千行时会让 PDF 无法打开。
-#' @return 一个 ggplot 对象。
+#' One row per person, one column per age, coloured by the nine annual
+#' states. Useful for eyeballing a sample or a career type.
+#'
+#' @param x The result of [ukb_worklife()] or [ukb_career()], or a state
+#'   matrix from [ukb_states()].
+#' @param eid People to draw. `NULL` (default) draws everyone.
+#' @param max_rows Maximum number of rows. Larger samples are thinned at
+#'   equal intervals after sorting (not by taking the first rows, which would
+#'   favour low eids).
+#' @param sort_by Row order: `"length"` (years observed), `"first_state"` or
+#'   `"none"`.
+#' @details Rows are drawn as a raster image, so plots of thousands of people
+#'   stay small and open quickly.
+#' @return A ggplot object.
 #' @examples
 #' wl <- ukb_worklife(ukb_synth(n = 60), verbose = FALSE)
 #' plot_states(wl)
@@ -170,17 +177,19 @@ plot_states <- function(x, eid = NULL, max_rows = 500L, sort_by = "length") {
 }
 
 
-#' 单人的 CAMSIS 年龄轨迹
+#' Occupational status (CAMSIS) trajectory for one person
 #'
-#' 背景是全样本（或该型）的同龄剖面，前景是这个人自己的轨迹。
+#' The person's own CAMSIS score by age, over the sample mean among those
+#' employed at each age.
 #'
-#' **背景那条曲线是横断面剖面**（该年龄仍在工作者的均值），不是任何人的纵向路径。
-#' 低地位者退出更早会让它上抬**而无人升迁** —— 所以只能读作"在职者的地位剖面
-#' 随年龄上升"，不可读作"这些人在升迁"。
+#' The grey background curve is a *cross-sectional* profile (the mean among
+#' people still working at that age), not anyone's longitudinal path. Because
+#' lower-status workers tend to leave work earlier, it can rise with age even
+#' if nobody is promoted.
 #'
-#' @param x 已经过 [ukb_camsis] 的对象。
-#' @param eid 要画的人。
-#' @return 一个 ggplot 对象。
+#' @param x A work-life object that has been through [ukb_camsis()].
+#' @param eid The person to draw.
+#' @return A ggplot object.
 #' @export
 plot_camsis_track <- function(x, eid) {
   .need_ggplot()

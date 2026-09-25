@@ -36,20 +36,61 @@ FLOW_OUT <- "beyond observation"
 FLOW_NOWORK <- "not in work"
 
 
-#' 职业流动桑基图
+#' Sankey plot of occupational flows across age bands
 #'
-#' @param x 已经过 [ukb_camsis] 的对象（需要 CAMSIS 作纵轴）。
-#' @param sex 性别。**必须分开画** —— 两性的 CAMSIS 是两个量表。
-#' @param bands 年龄段边界。默认 `c(16, 30, 42, 54, 66)` → 四段
-#'   16–29 / 30–41 / 42–53 / 54–65。第一段做到 29 岁是为了把入职期整个包住
-#'   而不是切在边界上（参考队列首次变动中位 26/25 岁）。
-#' @param node_level 节点粒度：`"soc_l3"`（默认，81 组）/ `"soc_l2"`（25 组）/
-#'   `"soc_l4"`（353 码）。
-#' @param min_flow 可单独追踪的带的人数阈值。`NULL` 时按实际格高自动算
-#'   （0.25 pt 线宽对应多少人）。**不要写死** —— 写死 19 在几千人的样本上会把
-#'   九成移动误判成不可追踪。
-#' @param label_top 标注最粗的前几个节点。
-#' @return 一个 ggplot 对象（需要 ggalluvial）。
+#' Draws an alluvial (sankey) diagram of observed occupation codes and
+#' observed transitions between them, across age bands, for one sex. It needs
+#' no model bundle -- only the annual panel from [ukb_worklife] and a CAMSIS
+#' table that you supply via [ukb_camsis].
+#'
+#' Definitions that affect how the plot should be read:
+#' * Columns are **age bands**, not "n-th transition".
+#' * Within each band a person is assigned the code with the **most
+#'   person-years** (ties go to the later code). Several code changes within
+#'   one band are therefore collapsed into one; the number collapsed is
+#'   reported in the caption and in `attr(, "collapsed")`.
+#' * **Right truncation and not working are two separate nodes**:
+#'   `"beyond observation"` (the band starts after the person's `career_end`)
+#'   and `"not in work"` (no employed person-years in the band). Merging them
+#'   would make "observation ended" read as "left the labour market".
+#' * CAMSIS scores are **sex-specific**, so the two sexes are not measured on
+#'   the same ruler: you can compare how much mobility is lateral, but not
+#'   what occupation sits at a given height. Always plot the sexes separately.
+#' * Thin flows are drawn as they are (not merged or dropped), so node heights
+#'   always equal the sum of their flows. Whether a flow is individually
+#'   traceable is a print-resolution issue and is reported as a single number
+#'   (the share of moves carried by flows with at least `min_flow` people).
+#'
+#' @param x An object that has been through [ukb_camsis] (CAMSIS scores are
+#'   required).
+#' @param sex Sex to plot. **Plot each sex separately** -- CAMSIS is a
+#'   different scale for women and men.
+#' @param bands Age-band boundaries. The default `c(16, 30, 42, 54, 66)` gives
+#'   four bands: 16-29, 30-41, 42-53, 54-65. The first band runs to 29 so that
+#'   the whole labour-market entry period falls inside it rather than across a
+#'   boundary (in the reference cohort the median age at first change is
+#'   26 for women and 25 for men).
+#' @param node_level Node granularity: `"soc_l3"` (default, 81 groups),
+#'   `"soc_l2"` (25 groups) or `"soc_l4"` (353 codes). With 353 codes, the
+#'   individually traceable flows cover only 13% (women) / 10% (men) of moves;
+#'   at the same threshold the share of between-group moves carried by
+#'   traceable flows is 51%/33% for 353 codes, 88%/78% for 81 groups and
+#'   99%/99% for 25 groups. 81 groups is the elbow; 25 groups is easiest to
+#'   read but is already at major-group level.
+#' @param min_flow Minimum number of people for a flow to count as
+#'   individually traceable. If `NULL` (default) it is computed from the
+#'   actual column height (how many people a 0.25 pt line represents). **Do
+#'   not hard-code it**: a fixed value of 19 would label about 90% of moves as
+#'   untraceable in a sample of a few thousand people.
+#' @param label_top Number of largest nodes to label.
+#' @return A ggplot object (requires the ggalluvial package), with attributes
+#'   `"flows"` (flow table; `kind` is `up` / `down` when the CAMSIS change
+#'   exceeds 2 points, otherwise `lateral`, plus `stay`, `out` and, at
+#'   `soc_l4` only, `regrade` for moves within the same 3-digit group),
+#'   `"nodes"`
+#'   (person-year-weighted CAMSIS position of each node), `"collapsed"`
+#'   (number of within-band code changes collapsed) and `"coverage"` (share of
+#'   moves in traceable flows).
 #' @examples
 #' \dontrun{
 #' wl <- ukb_camsis(wl, "camsis.csv")

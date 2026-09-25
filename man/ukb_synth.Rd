@@ -2,45 +2,56 @@
 % Please edit documentation in R/synth.R
 \name{ukb_synth}
 \alias{ukb_synth}
-\title{生成合成的 UKB 工作史宽表}
+\title{Synthetic UK Biobank work-history data}
 \usage{
 ukb_synth(n = 200L, seed = 42L, max_slots = 12L)
 }
 \arguments{
-\item{n}{总人数（≥ 12）。}
+\item{n}{Total number of people (at least 13). With \code{n > 13} the last one
+is the showcase career.}
 
-\item{seed}{随机种子。}
+\item{seed}{Random seed.}
 
-\item{max_slots}{job 与 gap 的槽数（真实数据是 40 / 33）。}
+\item{max_slots}{Number of job and gap slots (real exports have 40 / 33).}
 }
 \value{
-一个 \code{data.table}，可直接喂给 \link{ukb_worklife}。
-\code{attr(x, "branches")} 记录前 12 人各测哪条分支。
+A \code{data.table} in the layout of a UK Biobank export, ready for
+\code{\link[=ukb_worklife]{ukb_worklife()}}. \code{attr(x, "branches")} names the edge cases and
+\code{attr(x, "showcase_eid")} gives the eid of the showcase career.
 }
 \description{
-造出的表在\strong{列名与编码上}与真实 dispensal 同构（\verb{<Name>__0_<slot>} 槽格式、
-负数暴露码、\code{-313} = ongoing），所以它能走完整条 ETL。
+Generates a table that looks like a real UK Biobank Category 130 export --
+same column names (\verb{<Name>__0_<slot>}), same codings (negative exposure
+codes, \code{-313} = ongoing) -- so you can try every function in the package
+without touching real data. It contains no real person.
 }
 \details{
-前 12 个人是\strong{手工构造的边界情形}，每人对应一条 ETL 分支：\tabular{lll}{
-   # \tab 情形 \tab 测什么 \cr
-   1 \tab 单份工作，正常起止 \tab 基线 \cr
-   2 \tab ongoing 工作（\code{end = -313}） \tab 逐人录入年填充 \cr
-   3 \tab 退休 gap（108）后无在职年 \tab \code{career_end = retire} \cr
-   4 \tab \strong{退休后仍有在职年} \tab 细则 1：不能用首个退休年截断 \cr
-   5 \tab 同年两份工作，其一\strong{严格跨过}该年 \tab \code{is_parallel} \cr
-   6 \tab 同年两份工作，都在该年起止 \tab \code{is_transition}（衔接） \cr
-   7 \tab 无退休记录，末次工作很早 \tab 细则 3：\code{last_job_plus1} + \code{flag_incomplete} \cr
-   8 \tab 职业生涯跨过 \code{age_max = 75} \tab 封顶 \cr
-   9 \tab 暴露\strong{全答 DK}（-121） \tab \verb{peak_*} 为 NA 而 \verb{yrs_*} 为 0 \cr
-   10 \tab 只有 gap 没有 job \tab 面板必须由 job ∪ gap 共同构建 \cr
-   11 \tab 起止年颠倒 \tab 剔除 \cr
-   12 \tab 词表外的 SOC 码 \tab UNK \cr
-   13 \tab 窗口内有十几年空白 \tab \code{coverage < 0.5} → \code{flag_incomplete} \cr
+The \strong{last person (eid 9900001) is a showcase career}: education, a
+clerical job, a family-care break, part-time then full-time work in the same
+occupation, a move into care work with shift work and a short side job, an
+illness break, nursing, and retirement at 59. It is the example used by
+\code{\link[=plot_person]{plot_person()}} and on the package home page.
+
+The first 13 people are hand-built edge cases, each exercising one rule of
+the data processing (they are what the package's tests check):\tabular{lll}{
+   # \tab Case \tab What it tests \cr
+   1 \tab one job with normal start and end \tab baseline \cr
+   2 \tab ongoing job (\code{end = -313}) \tab filled with the per-person questionnaire year \cr
+   3 \tab retirement gap (108), no work afterwards \tab \code{career_end_source = "retire"} \cr
+   4 \tab \strong{works again after retiring} \tab the first retirement year must not cut the history \cr
+   5 \tab two jobs in one year, one strictly spanning it \tab \code{is_parallel} \cr
+   6 \tab two jobs in one year, one ending as the other starts \tab \code{is_transition} \cr
+   7 \tab no retirement record, last job long ago \tab \code{last_job_plus1} \cr
+   8 \tab career crosses \code{age_max = 75} \tab capped \cr
+   9 \tab every exposure answered "do not know" (-121) \tab \verb{peak_*} is NA while \verb{yrs_*} is 0 \cr
+   10 \tab gaps only, no jobs \tab the panel is built from jobs AND gaps \cr
+   11 \tab end year before start year \tab dropped \cr
+   12 \tab SOC code outside the vocabulary \tab treated as unknown \cr
+   13 \tab decades with no record inside the window \tab \code{coverage < 0.5}, \code{flag_incomplete = 1} \cr
 }
 
 
-其余的人随机生成，用来填出可画图的样本量。
+Everyone else is random, to give a sample large enough to plot.
 }
 \examples{
 d <- ukb_synth(n = 40)

@@ -8,36 +8,83 @@
 ## 那样 `@export` 会挂到这个常量上，ukb_synth 反而不被导出（踩过一次）。
 N_BRANCH <- 13L
 
-#' 生成合成的 UKB 工作史宽表
+## 展示用的那一人（论文 Fig 1a 的示例生涯，与 codes/py/fig_concept.py 的
+## EX_SEGMENTS 逐段一致）。年龄 = 年份 − 出生年；a1 = NA 表示 ongoing。
+## 每一段都在演示一件读图时要知道的事：
+##   18–23 / 27–31 / 32–34  4123 → 4122：同一 L3（412），上三层合并而 L4 不合并
+##   27–31 → 32–34          同一个码、工时不同：兼职 → 全职（状态与职业码是两个通道）
+##   35                     同年一份结束一份开始 → is_transition
+##   44                     一份短工夹在长工作中间 → is_parallel
+##   48–49                  因病中断（106）；回来后换了码 → dt 重置
+##   59                     退休（108）→ career_end = 59，其后是 PAD
+SHOWCASE <- list(
+  eid = 9900001L,
+  year_birth = 1950L,
+  jobs = data.frame(
+    a0    = c(18, 27, 32, 35, 44, 50),
+    a1    = c(23, 31, 35, 47, 44, 58),
+    soc   = c(4123, 4122, 4122, 6115, 9233, 3211),
+    hours = c(38, 20, 37, 38, 10, 42),
+    shift = c(0, 0, 0, 2, 0, 2)
+  ),
+  gaps = data.frame(
+    a0   = c(16, 24, 48, 59),
+    a1   = c(17, 26, 49, NA),
+    code = c(103, 105, 106, 108)
+  ),
+  ## 0/1/2 = never / sometimes / often；未列出的 agent 为 0
+  exposure = list(
+    "4123" = list(cigarette = 2),
+    "4122" = list(cigarette = 1),
+    "6115" = list(hot = 1, dusty = 1, cigarette = 1),
+    "9233" = list(dusty = 1, fumes = 1),
+    "3211" = list(hot = 1, fumes = 1)
+  ),
+  ## 答"不知道"（-121）的 agent
+  dont_know = list("6115" = c("asbestos", "diesel"), "3211" = "paints")
+)
+
+#' Synthetic UK Biobank work-history data
 #'
-#' 造出的表在**列名与编码上**与真实 dispensal 同构（`<Name>__0_<slot>` 槽格式、
-#' 负数暴露码、`-313` = ongoing），所以它能走完整条 ETL。
+#' Generates a table that looks like a real UK Biobank Category 130 export --
+#' same column names (`<Name>__0_<slot>`), same codings (negative exposure
+#' codes, `-313` = ongoing) -- so you can try every function in the package
+#' without touching real data. It contains no real person.
 #'
-#' 前 12 个人是**手工构造的边界情形**，每人对应一条 ETL 分支：
+#' The **last person (eid 9900001) is a showcase career**: education, a
+#' clerical job, a family-care break, part-time then full-time work in the same
+#' occupation, a move into care work with shift work and a short side job, an
+#' illness break, nursing, and retirement at 59. It is the example used by
+#' [plot_person()] and on the package home page.
 #'
-#' | # | 情形 | 测什么 |
+#' The first 13 people are hand-built edge cases, each exercising one rule of
+#' the data processing (they are what the package's tests check):
+#'
+#' | # | Case | What it tests |
 #' |---|---|---|
-#' | 1 | 单份工作，正常起止 | 基线 |
-#' | 2 | ongoing 工作（`end = -313`） | 逐人录入年填充 |
-#' | 3 | 退休 gap（108）后无在职年 | `career_end = retire` |
-#' | 4 | **退休后仍有在职年** | 细则 1：不能用首个退休年截断 |
-#' | 5 | 同年两份工作，其一**严格跨过**该年 | `is_parallel` |
-#' | 6 | 同年两份工作，都在该年起止 | `is_transition`（衔接） |
-#' | 7 | 无退休记录，末次工作很早 | 细则 3：`last_job_plus1` + `flag_incomplete` |
-#' | 8 | 职业生涯跨过 `age_max = 75` | 封顶 |
-#' | 9 | 暴露**全答 DK**（-121） | `peak_*` 为 NA 而 `yrs_*` 为 0 |
-#' | 10 | 只有 gap 没有 job | 面板必须由 job ∪ gap 共同构建 |
-#' | 11 | 起止年颠倒 | 剔除 |
-#' | 12 | 词表外的 SOC 码 | UNK |
-#' | 13 | 窗口内有十几年空白 | `coverage < 0.5` → `flag_incomplete` |
+#' | 1 | one job with normal start and end | baseline |
+#' | 2 | ongoing job (`end = -313`) | filled with the per-person questionnaire year |
+#' | 3 | retirement gap (108), no work afterwards | `career_end_source = "retire"` |
+#' | 4 | **works again after retiring** | the first retirement year must not cut the history |
+#' | 5 | two jobs in one year, one strictly spanning it | `is_parallel` |
+#' | 6 | two jobs in one year, one ending as the other starts | `is_transition` |
+#' | 7 | no retirement record, last job long ago | `last_job_plus1` |
+#' | 8 | career crosses `age_max = 75` | capped |
+#' | 9 | every exposure answered "do not know" (-121) | `peak_*` is NA while `yrs_*` is 0 |
+#' | 10 | gaps only, no jobs | the panel is built from jobs AND gaps |
+#' | 11 | end year before start year | dropped |
+#' | 12 | SOC code outside the vocabulary | treated as unknown |
+#' | 13 | decades with no record inside the window | `coverage < 0.5`, `flag_incomplete = 1` |
 #'
-#' 其余的人随机生成，用来填出可画图的样本量。
+#' Everyone else is random, to give a sample large enough to plot.
 #'
-#' @param n 总人数（≥ 12）。
-#' @param seed 随机种子。
-#' @param max_slots job 与 gap 的槽数（真实数据是 40 / 33）。
-#' @return 一个 `data.table`，可直接喂给 [ukb_worklife]。
-#'   `attr(x, "branches")` 记录前 12 人各测哪条分支。
+#' @param n Total number of people (at least 13). With `n > 13` the last one
+#'   is the showcase career.
+#' @param seed Random seed.
+#' @param max_slots Number of job and gap slots (real exports have 40 / 33).
+#' @return A `data.table` in the layout of a UK Biobank export, ready for
+#'   [ukb_worklife()]. `attr(x, "branches")` names the edge cases and
+#'   `attr(x, "showcase_eid")` gives the eid of the showcase career.
 #' @examples
 #' d <- ukb_synth(n = 40)
 #' wl <- ukb_worklife(d, verbose = FALSE)
@@ -135,13 +182,48 @@ ukb_synth <- function(n = 200L, seed = 42L, max_slots = 12L) {
     }
   }
 
+  ## ── 最后一人：展示用的完整生涯（论文 Fig 1a 的示例） ──────────
+  ## **覆写第 n 人而不是追加一行**：随机段的 RNG 次序与前 N_BRANCH 人都不变，
+  ## 测试按下标引用的人不受影响；n 仍是总人数。
+  if (n > N_BRANCH) {
+    i <- n
+    for (m in c("jstart", "jend", "soc", "hcat", "hex", "shift_any",
+                "shift_mix", "shift_night", "breath", "gcode", "gstart", "gend")) {
+      v <- get(m)
+      v[i, ] <- NA_real_
+      assign(m, v)
+    }
+    for (nm in EXPOSURES) expo[[nm]][i, ] <- NA_real_
+    yb[i] <- SHOWCASE$year_birth
+    sex[i] <- 0L
+    entry[i] <- 2015L
+    for (k in seq_len(nrow(SHOWCASE$jobs))) {
+      j <- SHOWCASE$jobs[k, ]
+      add_job(i, k, yb[i] + j$a0, yb[i] + j$a1, j$soc, hours = j$hours,
+              sh = j$shift)
+      for (nm in names(SHOWCASE$exposure[[as.character(j$soc)]])) {
+        lv <- SHOWCASE$exposure[[as.character(j$soc)]][[nm]]
+        expo[[nm]][i, k] <- c(0, -131, -141)[lv + 1L]
+      }
+      for (nm in SHOWCASE$dont_know[[as.character(j$soc)]]) {
+        expo[[nm]][i, k] <- CODINGS$exposure_dk
+      }
+    }
+    for (k in seq_len(nrow(SHOWCASE$gaps))) {
+      g <- SHOWCASE$gaps[k, ]
+      add_gap(i, k, yb[i] + g$a0,
+              if (is.na(g$a1)) CODINGS$ongoing else yb[i] + g$a1, g$code)
+    }
+  }
+
   ## ── 组装成 UKB 的槽列格式 ─────────────────────────────────
   wide <- function(m, nm) {
     colnames(m) <- paste0(nm, "__0_", seq_len(ncol(m)) - 1L)
     data.table::as.data.table(m)
   }
   out <- data.table::data.table(
-    eid = 9000000L + seq_len(n),
+    eid = c(9000000L + seq_len(n - (n > N_BRANCH)),
+            if (n > N_BRANCH) SHOWCASE$eid),
     Year_of_birth__0_0 = yb,
     Sex__0_0 = sex,
     When_occupational_data_entered__0_0 = paste0(entry, "-06-15"),
@@ -166,5 +248,6 @@ ukb_synth <- function(n = 200L, seed = 42L, max_slots = 12L) {
     "10 gaps only", "11 end before start", "12 code outside vocabulary",
     "13 long blank inside window"
   )
+  attr(out, "showcase_eid") <- if (n > N_BRANCH) SHOWCASE$eid else NA_integer_
   out[]
 }

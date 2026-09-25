@@ -2,33 +2,76 @@
 % Please edit documentation in R/movement.R
 \name{ukb_movement}
 \alias{ukb_movement}
-\title{职业移动几何}
+\title{Occupational mobility measures from the SOC embedding}
 \usage{
 ukb_movement(x, bundle, level = DEFAULTS$level, verbose = TRUE)
 }
 \arguments{
-\item{x}{\link{ukb_worklife} 的返回值。}
+\item{x}{Output of \link{ukb_worklife}.}
 
-\item{bundle}{\link{ukb_bundle} 的返回值（需要 Tier 1）。}
+\item{bundle}{Output of \link{ukb_bundle}; it must contain the SOC embedding
+(\code{soc_embed_*.parquet}).}
 
-\item{level}{SOC 层级，默认 \code{"soc_l4"}（与论文一致）。}
+\item{level}{SOC level; default \code{"soc_l4"} (as in the paper).}
 
-\item{verbose}{打印无变动者比例与几个中位数。}
+\item{verbose}{If \code{TRUE}, print the share of people who never changed code
+and a few medians.}
 }
 \value{
-在 \code{x} 上加一项 \code{movement}（一人一行）：
-\code{n_moves}（骨架）、\code{mean_jump}、\code{net_displacement}、\code{max_single_jump}、
-\code{first_move_age}、\code{first_move_rel}（距首个在职年的相对年数）、\code{last_move_age}。
+\code{x} with an added element \code{movement} (one row per person):
+\code{n_moves} (backbone), \code{mean_jump}, \code{net_displacement},
+\code{max_single_jump}, \code{first_move_age}, \code{first_move_rel} (years since the
+person's first working year; less confounded by birth cohort than
+absolute age) and \code{last_move_age}, plus \code{sex}.
 }
 \description{
-在 353 个职业码的 192 维嵌入空间里，把每个人走过的轨迹算成六个量。
+Summarises each person's sequence of occupation changes as a path through
+the 192-dimensional embedding space of the 353 occupation codes, and
+returns six per-person measures alongside the number of changes. This needs
+only the SOC embedding in the model bundle (\code{soc_embed_*.parquet}), \strong{not}
+the encoder weights or the torch package.
 }
 \details{
-\strong{\code{n_moves == 0} 的人，距离类量一律记 \code{NA} 而不是 0。} 参考队列 36.8\% 的人
-一生只报一个职业码，他们的路程"恒为 0"不是"变动小"而是\strong{没有定义} ——
-把两种 0 混在一列里正是"缺失当零暴露"那类错误。下游必须分开处理，
-所以本函数同时返回 \code{n_moves} 作为骨架变量。
+A change is counted between consecutive \strong{working} years with different
+codes. A change across an intervening gap also counts (that is exactly
+"changing job"), but both ends must be working years. Transitions involving
+codes outside the embedding vocabulary are dropped and reported.
+
+\strong{For people with \code{n_moves == 0}, all distance measures are \code{NA}, not 0.}
+In the reference cohort 36.8\% of people reported a single occupation code
+for life. Their "zero distance" does not mean "moved little" -- it is
+\strong{undefined}. Mixing the two kinds of zero in one column is the same
+mistake as treating missing exposure as zero exposure. Handle them
+separately downstream; that is why \code{n_moves} is always returned as the
+backbone variable.
 }
+\section{Why only these measures}{
+
+Pairwise distances between the 353 codes are \strong{highly concentrated}: the
+coefficient of variation is only 0.10, 94.8\% of code pairs lie in
+[30, 45], and the median is 37.6. In practice distances take three
+values: 0 (same code), about 19 (within the same L1 major group) and about
+37 (anywhere else). As a result, several quantities that look geometric are
+just the number of changes k in disguise:
+\itemize{
+\item path length = k x single jump, about 37k (R^2 with k 0.90/0.92 for
+women/men) -- not returned;
+\item detour ratio = path / net, about k (R^2 0.93/0.94) -- \strong{it is simply
+another way of writing k}, so do not describe it as "how roundabout" a
+career was; not returned;
+\item straightness = net / path, about 1/k (R^2 0.81/0.84) -- the reciprocal of
+the detour ratio, no new information; not returned.
+}
+
+Of the measures kept, \code{mean_jump} and \code{net_displacement} have R^2 with k of
+at most 0.02 and are genuinely independent of it. Because
+\verb{path = k x mean_jump}, "path length net of k" is just \code{mean_jump}, so
+nothing is lost by dropping path length. \code{first_move_age},
+\code{first_move_rel} and \code{last_move_age} are the only measures not based on
+distance and are almost unrelated to k (rho about 0). See
+\link{ukb_distance_concentration} and \link{plot_distance_concentration}.
+}
+
 \examples{
 \dontrun{
 wl <- ukb_movement(wl, bundle = b)

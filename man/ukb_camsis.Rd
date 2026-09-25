@@ -2,36 +2,65 @@
 % Please edit documentation in R/camsis.R
 \name{ukb_camsis}
 \alias{ukb_camsis}
-\title{附上 CAMSIS 职业地位}
+\title{Attach CAMSIS occupational status scores}
 \usage{
 ukb_camsis(x, path, slope_flat = 0.05, verbose = TRUE)
 }
 \arguments{
-\item{x}{\link{ukb_worklife} 的返回值。}
+\item{x}{Output of \link{ukb_worklife}.}
 
-\item{path}{CAMSIS 表的 csv 路径，或一个 data.frame。需要三列：
-\code{soc2000}（4 位码）、\code{mcamsis}、\code{fcamsis}。列名大小写不敏感。}
+\item{path}{Path to the CAMSIS CSV, or a data.frame. It needs three
+columns: \code{soc2000} (4-digit code), \code{mcamsis} and \code{fcamsis}. Column names
+are case-insensitive.}
 
-\item{slope_flat}{判"平"的斜率门槛（CAMSIS 点/年），默认 0.05。}
+\item{slope_flat}{Slope threshold (CAMSIS points per year) below which a
+trajectory counts as flat; default 0.05. Slopes are only fitted for people
+with at least 5 scored years spanning at least 3 years of age; otherwise
+they are \code{NA}.}
 
-\item{verbose}{打印覆盖率与轨迹型构成。}
+\item{verbose}{If \code{TRUE}, print coverage and the mix of trajectory patterns.}
 }
 \value{
-在 \code{x} 上加两项：\code{camsis}（逐人汇总）与 \code{camsis_by_age}（逐人年长表，
-画年龄轨迹要用它，逐人汇总量给不了）。
+\code{x} with two added elements: \code{camsis} (one row per person) and
+\code{camsis_by_age} (long table with one row per working person-year, needed
+to plot trajectories by age, which the per-person summary cannot give).
+In \code{camsis}, \code{zero_slope = 1} flags people whose score never changed, for
+whom a slope of 0 is exact rather than fitting noise.
 }
 \description{
-\strong{CAMSIS 不进 Transformer 的输入}（它是 SOC 码的确定性函数，同码同分，
-进输入等于把职业码换一种写法喂两遍）。它的价值恰在于\strong{独立于表征} ——
-"latent space 是否恢复了职业地位梯度"只有在它没进输入时才是有意义的验证。
+Looks up a CAMSIS status score for every working person-year and
+summarises each person's status trajectory (mean, first, last, change,
+slope, and a rising / flat / declining pattern). Works from your CSVs
+alone -- no model bundle needed. \strong{The CAMSIS table is not shipped with the
+package} (it is an external resource with its own licence); download the
+SOC2000 version from the CAMSIS project site and pass its path here.
 }
 \details{
-\strong{必须按性别选列}（\code{mcamsis} / \code{fcamsis}）：性别特异性已内建于量表。
-后果是\strong{两性的纵轴不是同一把尺子} —— 可比"横向流动占多少"，
-不可比"某个高度对应什么职业"。
+Scores are computed only on \strong{working} person-years up to \code{career_end}
+(the same window as the model input).
 
-只在 \code{career_end} 之前的\strong{在职}人年上计算（与 token 同窗口）。
+\strong{The sex-specific column is used} (\code{fcamsis} for women, \code{mcamsis} for
+men): sex specificity is built into the scale. As a consequence, \strong{the two
+sexes are not measured on the same ruler} -- you can compare how much
+mobility is lateral, but not which occupation sits at a given score.
+
+CAMSIS is \strong{not an input to the model}. It is a deterministic function of
+the SOC code (same code, same score), so feeding it in would just give the
+model the occupation code twice in another form. Its value lies precisely
+in being \strong{independent of the representation}: checking whether the
+latent space recovers the occupational status gradient is only a meaningful
+test because CAMSIS was left out.
 }
+\section{Limitation to report in your methods}{
+
+CAMSIS has no native SOC2000 version. The available scores are approximated
+from SOC90 via Occupational Information Unit indices ("Britain 2001
+approximations" v0.1). In type profiles this is a footnote; in the sankey
+from \link{plot_flows} CAMSIS gives each node its status position and decides
+whether a move counts as up, down or lateral, so the conclusion "most
+occupational mobility is lateral" rests directly on this mapping.
+}
+
 \examples{
 \dontrun{
 wl <- ukb_worklife("ukb_cat130.csv", entry_path = "ukb_cat123.csv")

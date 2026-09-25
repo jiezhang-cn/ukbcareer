@@ -2,18 +2,27 @@
 % Please edit documentation in R/viz-sample.R
 \name{plot_type_mix}
 \alias{plot_type_mix}
-\title{型构成 vs 参考队列}
+\title{Plot the career-type composition of your sample next to the reference cohort}
 \usage{
 plot_type_mix(x, bundle = NULL)
 }
 \arguments{
-\item{x}{已经过 \link{ukb_typology} 的对象。}
+\item{x}{An object that has been through \link{ukb_typology}.}
 
-\item{bundle}{给了就同时画参考队列的构成。}
+\item{bundle}{Output of \link{ukb_bundle}. If supplied, the reference cohort's
+composition is drawn as well.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-型构成 vs 参考队列
+Bar chart of the share of each career type, by sex. If a bundle is
+supplied, the reference cohort's composition is drawn alongside.
+}
+\details{
+\strong{Your types are not the reference types.} Each set comes from running
+Leiden on a different sample, so neither the numbering nor the meaning of
+a type carries over. The two are shown side by side only to compare how
+fine-grained the partitions are, not to compare type by type. See
+\link{ukb_typology}.
 }

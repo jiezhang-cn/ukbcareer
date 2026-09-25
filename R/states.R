@@ -41,17 +41,41 @@
 }
 
 
-#' 9 状态逐年序列（宽表）
+#' Annual state sequences (9 states + unknown) in wide format
 #'
-#' 横轴是年龄 `age_min` → 该人的 `career_end`，之后留 `NA`。
-#' **右侧的 NA 本身就是信息**（"职业生涯已结束"），不要把它当缺失填掉 ——
-#' 画 chronogram 时它是独立的一层。
+#' Classifies every person-year into one of 9 substantive labour-market states
+#' (plus `unknown`) and lays them out as a person-by-age matrix. Columns run
+#' from age `age_min` to each person's `career_end`; after that the cells are
+#' `NA`.
 #'
-#' @param x [ukb_worklife] 的返回值。
-#' @param sex 只要某个性别；`NULL` 表示全部。
-#' @param hours_ft_threshold 全职工时门槛。
-#' @return 一个 `ukbcareer_states` 对象：矩阵（行 = 人，列 = 年龄），
-#'   加上 `attr(, "alphabet")` / `attr(, "colours")` / `attr(, "eid")`。
+#' Rules: **being in a job takes priority over a gap** (a year with both counts
+#' as in work), and work years are split into full-time and part-time by
+#' weekly hours.
+#'
+#' **The trailing `NA`s carry information** ("career has ended"). Do not
+#' impute them as missing data -- in a chronogram they are a layer of their
+#' own.
+#'
+#' @section Why 9 states rather than one `other_break`:
+#' In the reference cohort, the 361,806 person-years spent out of work break
+#' down as: looking after home/family (code 105) 57.5%; **paid work under 15
+#' h/week or under 6 months (101) 15.4%**; education (103) 9.7%;
+#' **retirement (108) 9.0%**; other (-717 and 102) 5.6%; unemployment (107)
+#' 1.6%; **sickness or disability (106) 1.0%**; -818 and -121 0.2%. The three
+#' in bold must be kept separate: 101 is paid work that would otherwise be
+#' filed as a break (and is the second-largest non-work category); 106 is one
+#' of the most informative break types and a direct marker of health
+#' selection; what remains of 108 is mostly the `career_end` year itself.
+#' Lumping them into a single `other_break` (31.2% of non-work person-years)
+#' would make the state uninterpretable.
+#'
+#' @param x Output of [ukb_career()] or [ukb_worklife()].
+#' @param sex Keep only this sex; `NULL` (default) keeps everyone.
+#' @param hours_ft_threshold Weekly hours at or above which a job year counts
+#'   as full-time (default 30).
+#' @return A `ukbcareer_states` object: an integer matrix (rows = people,
+#'   columns = ages) with attributes `"alphabet"` (state labels), `"colours"`,
+#'   `"eid"` and `"ages"`.
 #' @examples
 #' wl <- ukb_worklife(ukb_synth(n = 40), verbose = FALSE)
 #' st <- ukb_states(wl)
@@ -59,7 +83,7 @@
 #' @export
 ukb_states <- function(x, sex = NULL,
                        hours_ft_threshold = DEFAULTS$hours_ft_threshold) {
-  stopifnot(inherits(x, "ukbcareer_worklife"))
+  x <- .as_worklife(x)
   a <- data.table::copy(x$annual)
   if (!is.null(sex)) {
     keep <- x$cohort$eid[as.character(x$cohort$sex) %in% as.character(sex)]
@@ -100,11 +124,16 @@ print.ukbcareer_states <- function(x, ...) {
 }
 
 
-#' 转成 TraMineR 的 `stslist`
+#' Convert state sequences to a TraMineR `stslist`
 #'
-#' @param x [ukb_states] 的返回值。
-#' @param ... 传给 `TraMineR::seqdef()`。
-#' @return 一个 `stslist`。
+#' Hands the output of [ukb_states] to TraMineR, with the package's state
+#' labels and colour palette already set, so you can use the usual sequence
+#' analysis tools (`seqdplot()`, `seqdist()`, ...). Requires the TraMineR
+#' package.
+#'
+#' @param x Output of [ukb_states].
+#' @param ... Further arguments passed to `TraMineR::seqdef()`.
+#' @return A TraMineR `stslist` object.
 #' @export
 as_seqdef <- function(x, ...) {
   stopifnot(inherits(x, "ukbcareer_states"))

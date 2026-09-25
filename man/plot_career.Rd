@@ -2,23 +2,25 @@
 % Please edit documentation in R/viz-person.R
 \name{plot_career}
 \alias{plot_career}
-\title{单人生涯时间线}
+\title{Compact career timeline for one person}
 \usage{
 plot_career(x, eid, show_exposure = TRUE)
 }
 \arguments{
-\item{x}{\link{ukb_worklife} 或 \link{ukb_career} 的返回值。}
+\item{x}{The result of \code{\link[=ukb_worklife]{ukb_worklife()}} or \code{\link[=ukb_career]{ukb_career()}}.}
 
-\item{eid}{要画的人。}
+\item{eid}{The person to draw.}
 
-\item{show_exposure}{是否在下方画暴露强度条。}
+\item{show_exposure}{Draw the exposure strips under the timeline.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-年龄轴 × 职业码色带 + gap 状态 + 暴露标记 + \code{career_end} 竖线。
-这是"详细个人工作史"最直接的呈现。
+A single strip along age coloured by the annual state (full-time,
+part-time, unemployed, ...), with the occupation code written where it
+changes, workplace exposures underneath and a dashed line at \code{career_end}.
+For the full one-page picture use \code{\link[=plot_person]{plot_person()}}.
 }
 \examples{
 wl <- ukb_worklife(ukb_synth(n = 40), verbose = FALSE)

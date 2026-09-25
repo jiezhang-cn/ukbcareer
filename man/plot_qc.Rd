@@ -2,18 +2,23 @@
 % Please edit documentation in R/viz-sample.R
 \name{plot_qc}
 \alias{plot_qc}
-\title{质控六面板}
+\title{Plot quality-control checks as deviations from the reference cohort}
 \usage{
 plot_qc(x, bundle = NULL)
 }
 \arguments{
-\item{x}{\link{ukb_worklife} / \link{ukb_career} 的返回值。}
+\item{x}{Output of \link{ukb_worklife} or \link{ukb_career}.}
 
-\item{bundle}{\link{ukb_bundle} 的返回值。}
+\item{bundle}{Output of \link{ukb_bundle}; needed to supply the reference values.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-质控六面板
+Runs \link{ukb_qc} and plots, for every check that has a reference value
+(\code{kind = "cohort"}), the relative deviation of your sample from the
+reference cohort, coloured by status. A \code{warn} is not necessarily an error
+-- it may be a real difference between samples, but you should be able to
+explain it. A \code{fail} must be resolved: it means your definitions differ
+from the paper's and the results are not comparable.
 }

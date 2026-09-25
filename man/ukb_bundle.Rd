@@ -2,7 +2,7 @@
 % Please edit documentation in R/bundle.R
 \name{ukb_bundle}
 \alias{ukb_bundle}
-\title{载入 bundle}
+\title{Load the pretrained model bundle}
 \usage{
 ukb_bundle(path, verify = TRUE, quiet = FALSE)
 }
@@ -20,7 +20,11 @@ discipline lands on the R side.}
 A \code{ukbcareer_bundle} object.
 }
 \description{
-载入 bundle
+The bundle holds the trained occupation embedding and career encoder from
+the reference UK Biobank cohort. It is needed only for occupational
+mobility (\code{what = "movement"}), the career representation
+(\code{include_latent = TRUE}) and career types (\code{what = "type"}). Everything
+else in \code{\link[=ukb_career]{ukb_career()}} works from your own CSV files alone.
 }
 \details{
 To obtain a bundle see \code{BUNDLE-ACCESS.md} in the package sources, or

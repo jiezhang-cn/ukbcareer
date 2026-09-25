@@ -2,7 +2,7 @@
 % Please edit documentation in R/viz-reference.R
 \name{plot_type_profiles}
 \alias{plot_type_profiles}
-\title{参考队列的型画像}
+\title{Plot career-type profiles of the reference cohort}
 \usage{
 plot_type_profiles(
   bundle,
@@ -11,17 +11,25 @@ plot_type_profiles(
 )
 }
 \arguments{
-\item{bundle}{\link{ukb_bundle} 的返回值。}
+\item{bundle}{Output of \link{ukb_bundle}.}
 
-\item{sex}{性别。}
+\item{sex}{Sex.}
 
-\item{panel}{\code{"camsis"} / \code{"exposure"} / \code{"soc"} / \code{"gaps"}。}
+\item{panel}{Which profile to draw: \code{"camsis"}, \code{"exposure"}, \code{"soc"} or
+\code{"gaps"}.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-直接读 bundle 的 \verb{tables/}（P2 特征职业 / P3 暴露富集 / P4 CAMSIS 剖面 /
-P5 中断）。这是\strong{参考队列}的画像，用来理解那 12/9 个型是什么，
-不是你的样本的画像。
+Heatmap (z-scored across types) read directly from the bundle's \verb{tables/}
+folder: P2 characteristic occupations, P3 exposure enrichment, P4 CAMSIS
+profile and P5 career breaks. These are profiles of the \strong{reference
+cohort}, meant to help you understand what its 12 (women) / 9 (men)
+types are. They are not profiles of your sample.
+}
+\details{
+Profile variables are for description and naming only; they were never
+used to choose the number of types or the clustering resolution
+(otherwise the profiles would be tautological).
 }

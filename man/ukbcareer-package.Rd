@@ -4,9 +4,11 @@
 \name{ukbcareer-package}
 \alias{ukbcareer}
 \alias{ukbcareer-package}
-\title{ukbcareer: Lifetime Work-History Attributes for UK Biobank via a Frozen Transformer}
+\title{ukbcareer: Lifetime Work-History Variables for UK Biobank}
 \description{
-Derives career attributes from UK Biobank Category 130 lifetime occupational histories. Tier 0 needs nothing but the raw CSV and gives a clean event table, an annual panel, nine-state annual sequences, exposure summaries and CAMSIS occupational status. Tier 1 adds occupational mobility geometry from a distributed 353-by-192 code embedding. Tier 2 adds the frozen 192-dimensional representation and a career typology obtained by re-running the published clustering recipe on the user's own sample. All definitions match the published pipeline, so estimates are comparable across studies. No health outcomes are involved: the package produces exposures, not results.
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
+Turns the UK Biobank lifetime work history (Category 130: every job and every break, with hours, shift work and ten workplace exposures) into analysis-ready, one-row-per-person variables: when and how the career ended, working years, cumulative exposures, shift work and long hours, occupational status (CAMSIS), occupational mobility and data quality flags. Also provides annual state sequences for sequence analysis, a one-page visual report of any participant's career, and, with the optional pretrained model, a career representation and career types re-derived on the user's own sample. Definitions follow the accompanying paper, so results are comparable across studies. The package derives exposures only; it contains no individual-level data.
 }
 \seealso{
 Useful links:

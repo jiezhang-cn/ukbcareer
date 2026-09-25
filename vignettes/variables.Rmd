@@ -1,0 +1,202 @@
+---
+title: "The derived variables: what they are and how to use them"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The derived variables: what they are and how to use them}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", message = FALSE)
+```
+
+`ukb_career()` returns one row per participant. This vignette goes through the
+variables group by group: what each one measures, how to put it into a model,
+and the mistakes to avoid. The same information, variable by variable, is
+available at any time from `ukb_dictionary()`.
+
+```{r}
+library(ukbcareer)
+d <- ukb_synth(n = 300)
+res <- ukb_career(d, verbose = FALSE)
+```
+
+## Where the variables come from
+
+UK Biobank participants reported, in an online questionnaire (field 22500 gives
+the date), every job they had held (start and end year, occupation, hours,
+shift work, ten workplace exposures) and every gap between jobs with its
+reason. The package turns this into an **annual record from age 16 to the end
+of the career**, and summarises that record per person.
+
+| Group | Needs | Get it with |
+| --- | --- | --- |
+| Career timing, record quality | your CSVs | `what = "core"` (default) |
+| Workplace exposures, working hours and shifts | your CSVs | `what = "exposure"` (default) |
+| Occupational status (CAMSIS) | a CAMSIS table | `what = "camsis"` + `camsis_path` |
+| Occupational mobility | the model bundle | `what = "movement"` + `bundle` |
+| Career type | the model bundle + `torch`, `igraph` | `what = "type"` + `bundle` |
+| Career representation | the model bundle + `torch` | `include_latent = TRUE` + `bundle` |
+
+## Career timing
+
+`career_end` is the age at which the working career ends. It is the earliest
+of three ages: a definite retirement, the year after the last job, and the age
+at the questionnaire. Every other summary (working years, exposure years, ...)
+is counted up to `career_end`.
+
+**`career_end_source` says which of the three it was, and it changes the
+meaning completely:**
+
+| `career_end_source` | Meaning | In a time-to-event analysis |
+| --- | --- | --- |
+| `retire` | the person reported retiring | event |
+| `cap` | still working at the questionnaire | censored |
+| `last_job_plus1` | stopped working, no retirement recorded | ambiguous: try both |
+
+```{r}
+res[, .(n = .N, median_end = median(career_end)), by = career_end_source]
+```
+
+`retire_age` is the age at the first definite retirement and `observed_retirement`
+flags whether there was one. They are not the same as `career_end_source ==
+"retire"`: someone can report retirement years after their last job, in which
+case `career_end` comes from the last job. `work_years` counts the years with at
+least one job and is the natural measure of career length. `max_parallel` is
+the largest number of jobs held in any one year.
+
+## Record quality
+
+Not everyone documented their whole working life. `coverage` is the share of
+years between 16 and `career_end` that are covered by a job or gap record;
+`flag_incomplete` marks people with `coverage < 0.5`.
+
+```{r}
+summary(res$coverage)
+res[, .N, by = flag_incomplete]
+```
+
+A common approach is to run the main analysis on everyone and a sensitivity
+analysis without `flag_incomplete == 1`. `first_year` and `last_year` are the
+first and last ages with a record (ages, despite the names); a late
+`first_year` means the early career was not reported.
+
+## Workplace exposures
+
+For each job, participants said how often their workplace was very noisy,
+very cold, very hot, very dusty, full of fumes or other people's cigarette
+smoke, or involved asbestos, paints/thinners/glues, pesticides or diesel
+exhaust: *rarely/never*, *sometimes* or *often*. For each of the ten agents
+there are four summaries:
+
+| Variable | Meaning | Typical use |
+| --- | --- | --- |
+| `yrs_exp_<agent>` | working years at *sometimes* or *often* | cumulative dose |
+| `yrs_high_<agent>` | working years at *often* | cumulative dose at the highest level; the most specific |
+| `peak_<agent>` | highest level ever: 0, 1, 2 | ever/never (`peak >= 1`) or ever-high (`peak == 2`) |
+| `mean_<agent>` | average level over working years (0-2) | intensity, independent of career length |
+
+```{r}
+res[, .(ever_dusty = mean(peak_dusty >= 1, na.rm = TRUE),
+        median_yrs_dusty_if_ever = median(yrs_exp_dusty[yrs_exp_dusty > 0],
+                                          na.rm = TRUE))]
+```
+
+Three overall indices summarise all ten: `exposure_breadth` (how many agents
+were ever reported), `high_exposure_years` (agent-years at *often*; can exceed
+`work_years` because agents co-occur) and `longest_agent_years` (the longest
+heavy exposure to a single agent).
+
+**"Do not know" is kept separate from "never".** When every answer for an
+agent was "do not know", `peak_<agent>` and `mean_<agent>` are `NA`, not 0.
+In the year counts, "do not know" years count as 0. When you model
+`peak_<agent>`, decide explicitly what to do with the `NA`s (exclude, or a
+separate category), rather than letting a model silently drop them.
+
+When comparing dose across people with very different career lengths, adjust
+for `work_years`, or use `mean_<agent>` instead of the year counts.
+
+## Working hours and shifts
+
+`long_hours_years` counts working years at 48 or more hours a week (the EU
+Working Time Directive limit), using the main job of each year. `shift_years`
+counts years with any shift work and `night_shift_years` years with night
+shifts. `long_hours_frac` and `shift_frac` divide by `work_years`, giving the
+share of the working life.
+
+```{r}
+res[, .(any_night_shifts = mean(night_shift_years > 0, na.rm = TRUE),
+        mean_shift_frac = mean(shift_frac, na.rm = TRUE)), by = sex]
+```
+
+## Occupational status (CAMSIS)
+
+CAMSIS scores rank occupations by social advantage (higher = more advantaged),
+with separate scales for men and women. With a CAMSIS table
+(`camsis_path = ...`) you get:
+
+- `camsis_mean`: lifetime occupational status, the usual choice for a
+  life-course socioeconomic position covariate;
+- `camsis_first`, `camsis_last`: status at entry and at the end of the career;
+- `camsis_change` (`last - first`) and `camsis_slope` (points per year):
+  intragenerational mobility;
+- `camsis_pattern`: `"rising"`, `"flat"` or `"declining"`, an easy category to
+  report; `zero_slope` flags people whose score never changed at all.
+
+`camsis_slope` is `NA` for people with fewer than five scored years or a span
+under three years, because a slope cannot be estimated reliably.
+
+## Occupational mobility
+
+These need the model bundle, which provides a map of how similar the 353
+occupation codes are to each other.
+
+- `n_moves`: the number of changes of occupation. About a third of people
+  never change; this is the backbone mobility measure.
+- `mean_jump`: how *far* a typical move goes, independent of how *often*
+  (about 19 within the same broad group, about 37 to a different one).
+- `max_single_jump`, `net_displacement` (from the first to the last
+  occupation), `first_move_age`, `first_move_rel` (years from the first job to
+  the first move; less tied to birth year than `first_move_age`) and
+  `last_move_age`.
+
+**All distance and timing measures are `NA` when `n_moves == 0`**: the
+distance of a move that never happened is undefined, not zero. In a model,
+either restrict to people who moved, or enter `n_moves == 0` as its own
+indicator and set the distance to a constant for them.
+
+## Career type
+
+With the model bundle, `what = "type"` groups people whose whole careers look
+alike. The model turns each career into a numeric summary (the career
+representation below), and the same clustering recipe as in the paper is run
+on **your** sample, separately by sex. Types are numbered 0, 1, 2, ...
+
+How to use it well:
+
+1. **Describe the types first.** `plot_type_mix()` and `plot_chronogram(res,
+   by = "type")` show what each type looks like (states over age, occupations,
+   exposures). Name them from what you see.
+2. **Your types are yours.** Type numbers and meanings do not carry over from
+   the paper or from another study; what is shared is the method.
+3. **Check stability.** The grouping is only moderately stable (bootstrap ARI
+   0.52 for women and 0.62 for men on the reference cohort). `ukb_typology()`
+   warns when changing only the random seed changes the result much.
+4. **Treat `type` as a descriptive summary.** Use it as a categorical exposure
+   with a clearly defined reference type, and prefer the continuous variables
+   above for primary hypotheses.
+
+## Career representation
+
+`include_latent = TRUE` adds `z001` ... `z192`, a 192-number summary of the
+whole career. Individual dimensions have no meaning of their own. Use them
+together: to find similar careers, to cluster, or as a high-dimensional
+adjustment set (for example, after reducing them with principal components).
+
+## The full dictionary
+
+```{r}
+dd <- ukb_dictionary()
+knitr::kable(dd[, .(variable, group, needs, description)])
+```

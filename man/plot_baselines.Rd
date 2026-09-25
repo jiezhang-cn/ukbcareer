@@ -2,22 +2,33 @@
 % Please edit documentation in R/viz-reference.R
 \name{plot_baselines}
 \alias{plot_baselines}
-\title{序列可预测性的基线阶梯}
+\title{Plot the baseline ladder for sequence predictability}
 \usage{
 plot_baselines(bundle)
 }
 \arguments{
-\item{bundle}{\link{ukb_bundle} 的返回值。}
+\item{bundle}{Output of \link{ukb_bundle}.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-\strong{这张图的意义就是诚实地说"模型只领先 0.7\%"。}
+Compares the model's per-token cross-entropy on annual occupation
+sequences with a ladder of simple baselines (uniform, marginal
+distribution, "copy the previous year", "copy both neighbouring years"),
+using the values stored in the bundle's \code{reliability.json}.
 }
 \details{
-编码器是双向的（无 causal mask），预测被遮掩的第 j 年时\strong{同时看得到 j−1 与
-j+1 年}，所以逐 token 交叉熵测的是 interpolation 不是 forecasting。
-正确的对照因此不是边际分布（那是稻草人），而是"抄前后两年"这条
-不学习的规则 —— 模型只比它好约 0.03 nats。
+\strong{The point of this plot is to state honestly that the model is only 0.7\%
+ahead.} The encoder is bidirectional (no causal mask): when it predicts a
+masked year j, it \strong{sees both year j-1 and year j+1}. Per-token
+cross-entropy therefore measures interpolation, not forecasting. The right
+comparator is not the marginal distribution (a straw man) but the
+non-learning rule "copy both neighbouring years" -- and the model beats it
+by only about 0.03 nats. The subtitle expresses this gap as a share of the
+model's total gain over the marginal distribution.
+
+In practice, report "annual occupation sequences are almost fully
+determined by the adjacent years", not "the model learned career
+predictability".
 }

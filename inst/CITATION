@@ -15,7 +15,7 @@ bibentry(
 
 bibentry(
   bibtype = "Manual",
-  title   = "ukbcareer: Lifetime Work-History Attributes for UK Biobank",
+  title   = "ukbcareer: Lifetime Work-History Variables for UK Biobank",
   author  = person("Jie", "Zhang"),
   year    = "2026",
   note    = "R package version 0.1.0",

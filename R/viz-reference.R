@@ -2,19 +2,30 @@
 # 参考级可视化（只用 bundle，不需要用户数据）
 # ══════════════════════════════════════════════════════════════════
 
-#' 353 个职业码的嵌入地图
+#' Map of the 353 occupation codes in the embedding space
 #'
-#' 点 = 一个 4 位 SOC2000 码（**不是一个人**），大小 = 人年数，颜色 = L1 大类。
-#' 坐标直接来自 bundle，与论文图同一个坐标系 —— 可以逐点对读。
+#' Plots the 2-D map of occupation codes from the model bundle. Each point is
+#' one 4-digit SOC2000 code (**not one person**); point size is the number of
+#' person-years with that code, and colour is the SOC major group (L1). The
+#' coordinates are taken directly from the bundle, so they are in the same
+#' coordinate system as the paper's figure and can be compared point by point.
+#' No individual-level data are needed.
 #'
-#' 9 个大类用 Dark2 系，**刻意不含蓝红**（那两色留给性别编码）。
-#' 大类名标在团的**上沿**而不是团心 —— 标团心会与人年数最多的锚点码号叠在一起。
+#' The 9 major groups use a Dark2-style palette that **deliberately avoids
+#' blue and red** (reserved for sex). Major-group labels sit at the **top
+#' edge** of each cluster rather than its centre, where they would overlap
+#' the labels of the codes with the most person-years.
 #'
-#' @param bundle [ukb_bundle] 的返回值。
-#' @param sex 性别。**两性的坐标系无关**（编码器与投影都是分性别 fit 的），
-#'   不可对位比较。
-#' @param label_top 标注人年数最多的前几个码。
-#' @return 一个 ggplot 对象。
+#' Keep in mind that the embedding is partly learned from which codes occur
+#' next to each other in careers, so "similar jobs sit close together" is
+#' partly true by construction.
+#'
+#' @param bundle Output of [ukb_bundle].
+#' @param sex Sex. **The two sexes have unrelated coordinate systems** (the
+#'   encoder and the projection are fitted separately for each sex), so
+#'   positions cannot be compared across sexes.
+#' @param label_top Number of codes with the most person-years to label.
+#' @return A ggplot object.
 #' @examples
 #' \dontrun{
 #' plot_soc_map(b, "Female")
@@ -61,17 +72,28 @@ plot_soc_map <- function(bundle, sex = "Female", label_top = 12L) {
 }
 
 
-#' 序列可预测性的基线阶梯
+#' Plot the baseline ladder for sequence predictability
 #'
-#' **这张图的意义就是诚实地说"模型只领先 0.7%"。**
+#' Compares the model's per-token cross-entropy on annual occupation
+#' sequences with a ladder of simple baselines (uniform, marginal
+#' distribution, "copy the previous year", "copy both neighbouring years"),
+#' using the values stored in the bundle's `reliability.json`.
 #'
-#' 编码器是双向的（无 causal mask），预测被遮掩的第 j 年时**同时看得到 j−1 与
-#' j+1 年**，所以逐 token 交叉熵测的是 interpolation 不是 forecasting。
-#' 正确的对照因此不是边际分布（那是稻草人），而是"抄前后两年"这条
-#' 不学习的规则 —— 模型只比它好约 0.03 nats。
+#' **The point of this plot is to state honestly that the model is only 0.7%
+#' ahead.** The encoder is bidirectional (no causal mask): when it predicts a
+#' masked year j, it **sees both year j-1 and year j+1**. Per-token
+#' cross-entropy therefore measures interpolation, not forecasting. The right
+#' comparator is not the marginal distribution (a straw man) but the
+#' non-learning rule "copy both neighbouring years" -- and the model beats it
+#' by only about 0.03 nats. The subtitle expresses this gap as a share of the
+#' model's total gain over the marginal distribution.
 #'
-#' @param bundle [ukb_bundle] 的返回值。
-#' @return 一个 ggplot 对象。
+#' In practice, report "annual occupation sequences are almost fully
+#' determined by the adjacent years", not "the model learned career
+#' predictability".
+#'
+#' @param bundle Output of [ukb_bundle].
+#' @return A ggplot object.
 #' @export
 plot_baselines <- function(bundle) {
   .need_ggplot()
@@ -131,14 +153,23 @@ plot_baselines <- function(bundle) {
 }
 
 
-#' 码对距离的集中度
+#' Plot how concentrated the pairwise distances between occupation codes are
 #'
-#' Tier 1 全部衍生量的**承重事实**。距离近乎三态：0（同码）/ ~19（同 L1 大类内）
-#' / ~37（换到别处），而 ~37 占绝大多数。
+#' Histogram of the distances between every pair of occupation codes in the
+#' 192-dimensional embedding, split into pairs within the same SOC major
+#' group and pairs across major groups.
 #'
-#' @param bundle [ukb_bundle] 的返回值。
-#' @param sex 性别。
-#' @return 一个 ggplot 对象。
+#' This is the **key fact behind every mobility measure** returned by
+#' [ukb_movement]. Distances are nearly three-valued: 0 (same code), about
+#' 19 (within the same L1 major group) and about 37 (anywhere else), with
+#' about 37 by far the most common. As a consequence, path length, detour
+#' ratio and straightness are just the number of changes in disguise, which
+#' is why the package does not return them.
+#'
+#' @param bundle Output of [ukb_bundle] (needs the SOC embedding,
+#'   `soc_embed_*.parquet`).
+#' @param sex Sex.
+#' @return A ggplot object.
 #' @export
 plot_distance_concentration <- function(bundle, sex = "Female") {
   .need_ggplot()
@@ -175,16 +206,23 @@ plot_distance_concentration <- function(bundle, sex = "Female") {
 }
 
 
-#' 参考队列的型画像
+#' Plot career-type profiles of the reference cohort
 #'
-#' 直接读 bundle 的 `tables/`（P2 特征职业 / P3 暴露富集 / P4 CAMSIS 剖面 /
-#' P5 中断）。这是**参考队列**的画像，用来理解那 12/9 个型是什么，
-#' 不是你的样本的画像。
+#' Heatmap (z-scored across types) read directly from the bundle's `tables/`
+#' folder: P2 characteristic occupations, P3 exposure enrichment, P4 CAMSIS
+#' profile and P5 career breaks. These are profiles of the **reference
+#' cohort**, meant to help you understand what its 12 (women) / 9 (men)
+#' types are. They are not profiles of your sample.
 #'
-#' @param bundle [ukb_bundle] 的返回值。
-#' @param sex 性别。
-#' @param panel `"camsis"` / `"exposure"` / `"soc"` / `"gaps"`。
-#' @return 一个 ggplot 对象。
+#' Profile variables are for description and naming only; they were never
+#' used to choose the number of types or the clustering resolution
+#' (otherwise the profiles would be tautological).
+#'
+#' @param bundle Output of [ukb_bundle].
+#' @param sex Sex.
+#' @param panel Which profile to draw: `"camsis"`, `"exposure"`, `"soc"` or
+#'   `"gaps"`.
+#' @return A ggplot object.
 #' @export
 plot_type_profiles <- function(bundle, sex = "Female",
                                panel = c("camsis", "exposure", "soc", "gaps")) {

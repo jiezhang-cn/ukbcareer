@@ -1,27 +1,30 @@
 # Getting the `ukbcareer` bundle
 
-The bundle holds the frozen parameters that Tier 1 and Tier 2 need. It is **not
+The bundle holds the pretrained model -- the occupation embedding and the
+career encoder trained on the reference UK Biobank cohort. It is **not
 shipped with the package and is not downloaded automatically**, because it is a
 derivative of UK Biobank data and its distribution is governed by the UK Biobank
 Material Transfer Agreement.
 
-Tier 0 needs none of this. If all you want is a clean lifetime work-history
-panel, nine-state sequences, exposure summaries, CAMSIS status and the
-model-free plots, install the package and stop reading here.
+**Most users do not need it.** Career timing, record quality, workplace
+exposures, working hours and shifts, CAMSIS status, the nine-state sequences
+and the one-page person report (`plot_person()`) all come from your own CSV
+files. The bundle is needed only for occupational mobility
+(`what = "movement"`), the 192-d career representation and career types.
 
 ## What is in it
 
 `bundle_v5.0`, 27 MB, 34 files.
 
-| File | Tier | Contents |
+| File | Needed for | Contents |
 | --- | --- | --- |
-| `vocab.json` | 0 | the frozen vocabulary: 353 SOC2000 codes, 10 gap codes, special tokens |
-| `reference_qc.json` | 0 | reference-cohort distributions that `ukb_qc()` compares against |
-| `reliability.json` | 0 | S1 / ASW / largest cluster / SOC purity, and the predictability baseline ladder |
-| `tables/` | 0 | reference type profiles (P1-P7, T1-T4) and the BC audit |
-| `type_names_{sex}.json` | 0 | frozen names of the **reference** types, for orientation |
-| `soc_embed_{sex}.parquet` | 1 | 353 x 192 occupation-code embedding plus 2-D map coordinates |
-| `encoder_{sex}.ts` | 2 | the frozen encoder as TorchScript (about 3M parameters) |
+| `vocab.json` | everything below | the frozen vocabulary: 353 SOC2000 codes, 10 gap codes, special tokens |
+| `reference_qc.json` | `ukb_qc()` | reference-cohort distributions that `ukb_qc()` compares against |
+| `reliability.json` | `ukb_bundle_info()` | S1 / ASW / largest cluster / SOC purity, and the predictability baseline ladder |
+| `tables/` | reference comparisons | reference type profiles (P1-P7, T1-T4) and the BC audit |
+| `type_names_{sex}.json` | reference comparisons | frozen names of the **reference** types, for orientation |
+| `soc_embed_{sex}.parquet` | occupational mobility | 353 x 192 occupation-code embedding plus 2-D map coordinates |
+| `encoder_{sex}.ts` | career representation, career types | the frozen encoder as TorchScript (about 3M parameters) |
 | `MANIFEST.json` | — | sha256 of every file, plus the definitions the bundle was built under |
 
 ## What is *not* in it

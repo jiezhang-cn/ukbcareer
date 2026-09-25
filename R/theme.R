@@ -39,11 +39,27 @@ UKB_MOVE <- c(up = "#1b7837", lateral = "#8c6d1f", down = "#b2182b",
               regrade = "#762a83", stay = "#dcdcdc", out = "#9fb0bd")
 
 
-#' ukbcareer 的统一图形主题
+#' The ggplot2 theme used by all ukbcareer plots
 #'
-#' @param base_size 基础字号。
-#' @param grid 是否保留浅网格线。
-#' @return 一个 ggplot2 theme 对象。
+#' A minimal theme with small, publication-sized text, left-aligned titles and
+#' captions and a light panel border. Every plot in the package uses it; add it
+#' to your own ggplots to match their look.
+#'
+#' @section Plotting conventions used in this package:
+#' * **Zero and "undefined" are drawn light.** Continuous scales use YlGnBu
+#'   (0 = pale yellow), never reversed. Viridis and cividis are dark at 0, and
+#'   dark reads as "something is here" -- misleading when 0 means "nothing
+#'   happened". Undefined values (e.g. distance measures for people who never
+#'   changed occupation) are drawn in grey.
+#' * **Small cells are not drawn.** Any group with n < 10 is left blank and
+#'   flagged in the caption; no points, boxes or numbers are shown for it.
+#' * **Text on figures is plain ASCII English**, so that PDFs embed fonts
+#'   reliably on every system.
+#' * Save figures with [ukb_save] rather than `ggsave()` directly.
+#'
+#' @param base_size Base font size in points.
+#' @param grid If `TRUE`, keep light major grid lines.
+#' @return A ggplot2 theme object.
 #' @examples
 #' \dontrun{
 #' library(ggplot2)
@@ -81,18 +97,22 @@ ukb_theme <- function(base_size = 9, grid = TRUE) {
 }
 
 
-#' 保存图形（本包的唯一出口）
+#' Save a plot with consistent PDF, font and resolution settings
 #'
-#' 统一 PDF / 字体嵌入 / dpi。**不要直接用 `ggsave()`** —— 那会绕过字体与
-#' 光栅化设定，产出的 pdf 在投稿系统里可能因 Type 3 字体被退。
+#' The recommended way to save any ukbcareer figure. PDFs are written with
+#' `cairo_pdf` (when available) so that fonts are embedded properly. **Avoid
+#' calling `ggsave()` directly**: it bypasses these settings, and a PDF with
+#' Type 3 fonts may be rejected by journal submission systems.
 #'
-#' @param plot ggplot 对象。
-#' @param file 输出路径。后缀决定格式（`.pdf` / `.png`）。
-#' @param width,height 英寸。
-#' @param dpi 仅影响光栅化图层。**桑基这类含上万条半透明路径的图用 250 就够**
-#'   （400 时 PDF 约 20 MB，250 约 9 MB 且看不出锯齿）；文字与色块是矢量的，
-#'   与 dpi 无关。
-#' @return 不可见的 `file`。
+#' @param plot A ggplot object.
+#' @param file Output path. The file extension sets the format (e.g. `.pdf`,
+#'   `.png`).
+#' @param width,height Size in inches.
+#' @param dpi Resolution for raster output such as `.png` (it is not passed on
+#'   when saving a PDF). For plots with many thousands of semi-transparent
+#'   paths, such as the sankey from [plot_flows], 250 is enough. Text and
+#'   filled shapes in a PDF are vector graphics and do not depend on dpi.
+#' @return `file`, invisibly.
 #' @export
 ukb_save <- function(plot, file, width = 7, height = 5, dpi = 250) {
   .need_ggplot()

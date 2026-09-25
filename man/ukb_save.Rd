@@ -2,25 +2,29 @@
 % Please edit documentation in R/theme.R
 \name{ukb_save}
 \alias{ukb_save}
-\title{保存图形（本包的唯一出口）}
+\title{Save a plot with consistent PDF, font and resolution settings}
 \usage{
 ukb_save(plot, file, width = 7, height = 5, dpi = 250)
 }
 \arguments{
-\item{plot}{ggplot 对象。}
+\item{plot}{A ggplot object.}
 
-\item{file}{输出路径。后缀决定格式（\code{.pdf} / \code{.png}）。}
+\item{file}{Output path. The file extension sets the format (e.g. \code{.pdf},
+\code{.png}).}
 
-\item{width, height}{英寸。}
+\item{width, height}{Size in inches.}
 
-\item{dpi}{仅影响光栅化图层。\strong{桑基这类含上万条半透明路径的图用 250 就够}
-（400 时 PDF 约 20 MB，250 约 9 MB 且看不出锯齿）；文字与色块是矢量的，
-与 dpi 无关。}
+\item{dpi}{Resolution for raster output such as \code{.png} (it is not passed on
+when saving a PDF). For plots with many thousands of semi-transparent
+paths, such as the sankey from \link{plot_flows}, 250 is enough. Text and
+filled shapes in a PDF are vector graphics and do not depend on dpi.}
 }
 \value{
-不可见的 \code{file}。
+\code{file}, invisibly.
 }
 \description{
-统一 PDF / 字体嵌入 / dpi。\strong{不要直接用 \code{ggsave()}} —— 那会绕过字体与
-光栅化设定，产出的 pdf 在投稿系统里可能因 Type 3 字体被退。
+The recommended way to save any ukbcareer figure. PDFs are written with
+\code{cairo_pdf} (when available) so that fonts are embedded properly. \strong{Avoid
+calling \code{ggsave()} directly}: it bypasses these settings, and a PDF with
+Type 3 fonts may be rejected by journal submission systems.
 }

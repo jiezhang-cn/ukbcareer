@@ -2,26 +2,53 @@
 % Please edit documentation in R/states.R
 \name{ukb_states}
 \alias{ukb_states}
-\title{9 状态逐年序列（宽表）}
+\title{Annual state sequences (9 states + unknown) in wide format}
 \usage{
 ukb_states(x, sex = NULL, hours_ft_threshold = DEFAULTS$hours_ft_threshold)
 }
 \arguments{
-\item{x}{\link{ukb_worklife} 的返回值。}
+\item{x}{Output of \code{\link[=ukb_career]{ukb_career()}} or \code{\link[=ukb_worklife]{ukb_worklife()}}.}
 
-\item{sex}{只要某个性别；\code{NULL} 表示全部。}
+\item{sex}{Keep only this sex; \code{NULL} (default) keeps everyone.}
 
-\item{hours_ft_threshold}{全职工时门槛。}
+\item{hours_ft_threshold}{Weekly hours at or above which a job year counts
+as full-time (default 30).}
 }
 \value{
-一个 \code{ukbcareer_states} 对象：矩阵（行 = 人，列 = 年龄），
-加上 \code{attr(, "alphabet")} / \code{attr(, "colours")} / \code{attr(, "eid")}。
+A \code{ukbcareer_states} object: an integer matrix (rows = people,
+columns = ages) with attributes \code{"alphabet"} (state labels), \code{"colours"},
+\code{"eid"} and \code{"ages"}.
 }
 \description{
-横轴是年龄 \code{age_min} → 该人的 \code{career_end}，之后留 \code{NA}。
-\strong{右侧的 NA 本身就是信息}（"职业生涯已结束"），不要把它当缺失填掉 ——
-画 chronogram 时它是独立的一层。
+Classifies every person-year into one of 9 substantive labour-market states
+(plus \code{unknown}) and lays them out as a person-by-age matrix. Columns run
+from age \code{age_min} to each person's \code{career_end}; after that the cells are
+\code{NA}.
 }
+\details{
+Rules: \strong{being in a job takes priority over a gap} (a year with both counts
+as in work), and work years are split into full-time and part-time by
+weekly hours.
+
+\strong{The trailing \code{NA}s carry information} ("career has ended"). Do not
+impute them as missing data -- in a chronogram they are a layer of their
+own.
+}
+\section{Why 9 states rather than one \code{other_break}}{
+
+In the reference cohort, the 361,806 person-years spent out of work break
+down as: looking after home/family (code 105) 57.5\%; \strong{paid work under 15
+h/week or under 6 months (101) 15.4\%}; education (103) 9.7\%;
+\strong{retirement (108) 9.0\%}; other (-717 and 102) 5.6\%; unemployment (107)
+1.6\%; \strong{sickness or disability (106) 1.0\%}; -818 and -121 0.2\%. The three
+in bold must be kept separate: 101 is paid work that would otherwise be
+filed as a break (and is the second-largest non-work category); 106 is one
+of the most informative break types and a direct marker of health
+selection; what remains of 108 is mostly the \code{career_end} year itself.
+Lumping them into a single \code{other_break} (31.2\% of non-work person-years)
+would make the state uninterpretable.
+}
+
 \examples{
 wl <- ukb_worklife(ukb_synth(n = 40), verbose = FALSE)
 st <- ukb_states(wl)

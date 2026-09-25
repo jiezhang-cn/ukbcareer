@@ -2,19 +2,26 @@
 % Please edit documentation in R/movement.R
 \name{ukb_distance_concentration}
 \alias{ukb_distance_concentration}
-\title{码对距离的集中度}
+\title{Summarise how concentrated the distances between occupation codes are}
 \usage{
 ukb_distance_concentration(bundle, sex = "Female")
 }
 \arguments{
-\item{bundle}{\link{ukb_bundle} 的返回值。}
+\item{bundle}{Output of \link{ukb_bundle} (needs the SOC embedding,
+\code{soc_embed_*.parquet}).}
 
-\item{sex}{性别。}
+\item{sex}{Sex.}
 }
 \value{
-一个含 \code{median} / \code{cv} / \code{frac_30_45} / \code{q} 的列表（不可见地打印）。
+Invisibly, a list with \code{n_codes}, \code{median}, \code{cv}, \code{frac_30_45} and
+\code{q} (quantiles). A summary is printed as a side effect.
 }
 \description{
-报告 Tier 1 全部衍生量的\strong{承重事实}。写文章时必须报这个数：
-距离近乎三态（0 / ~19 同大类内 / ~37 换到别处），一切"绕路程度"的措辞都不成立。
+Computes all pairwise distances between occupation codes in the SOC
+embedding and prints their median, coefficient of variation, share within
+[30, 45] and quantiles. This is the \strong{key fact behind every mobility
+measure} from \link{ukb_movement}, and you should report it in any paper that
+uses them: distances are nearly three-valued (0 / about 19 within a major
+group / about 37 elsewhere), so any wording about how "roundabout" a career
+was does not hold.
 }

@@ -2,12 +2,13 @@
 % Please edit documentation in R/career.R
 \name{ukb_career}
 \alias{ukb_career}
-\title{一次拿到全部工作史派生变量}
+\title{All derived work-history variables in one table}
 \usage{
 ukb_career(
   path,
   bundle = NULL,
   entry_path = NULL,
+  covariate_path = NULL,
   camsis_path = NULL,
   what = c("core", "exposure", "movement"),
   include_latent = FALSE,
@@ -15,36 +16,56 @@ ukb_career(
 )
 }
 \arguments{
-\item{path}{Category 130 的 csv 路径，或已读入的表，或一个已有的
-\code{ukbcareer_worklife} 对象（那就跳过 ETL）。}
+\item{path}{Path to your Category 130 CSV, a data frame already read in, or
+the result of \code{\link[=ukb_worklife]{ukb_worklife()}} (then the data are not processed again).}
 
-\item{bundle}{\link{ukb_bundle} 的返回值。\code{NULL} 时只能跑最基础的 Tier 0。}
+\item{bundle}{The model bundle from \code{\link[=ukb_bundle]{ukb_bundle()}}. Only needed for
+\code{movement}, \code{latent} and \code{type}.}
 
-\item{entry_path}{Category 123 的 csv（含 field 22500）。见 \link{ukb_worklife}。}
+\item{entry_path}{CSV with field 22500 (Category 123). See \code{\link[=ukb_worklife]{ukb_worklife()}}.}
 
-\item{camsis_path}{CAMSIS 表的路径。\strong{不随包分发}，需自备。}
+\item{covariate_path}{CSV with sex (field 31) and year of birth (field 34),
+if they are not in the main file. See \code{\link[=ukb_worklife]{ukb_worklife()}}.}
 
-\item{what}{要哪几组。\code{"core"} = 口径与工作史计数，\code{"exposure"} = 暴露汇总，
-\code{"camsis"} = 职业地位，\code{"movement"} = 移动几何（Tier 1），
-\code{"latent"} = 192 维表征（Tier 2），\code{"type"} = 类型学（Tier 2，含 latent）。}
+\item{camsis_path}{A CAMSIS table (not shipped with the package; see
+\code{\link[=ukb_camsis]{ukb_camsis()}}).}
 
-\item{include_latent}{是否把 192 列 \verb{z*} 放进返回的宽表。默认 \code{FALSE}
-（它们会让表宽到不好用；需要时从 \code{attr(out, "worklife")$latent} 取）。}
+\item{what}{Which variable groups to compute; see the table above.}
 
-\item{verbose}{打印每一步的关键口径数字。}
+\item{include_latent}{Add the 192 \verb{z*} columns to the returned table.
+Default \code{FALSE} -- they make the table unwieldy; they are always
+available as \code{attr(out, "worklife")$latent}.}
+
+\item{verbose}{Print progress and the key numbers of each step.}
 }
 \value{
-一个 \code{data.table}，一人一行。\code{attr(, "worklife")} 是完整的中间产物，
-\code{attr(, "ukbcareer")} 是口径元数据。
+A \code{data.table} with one row per person. \code{attr(out, "worklife")}
+holds the full intermediate results (annual panel, job and gap tables),
+which \code{\link[=plot_person]{plot_person()}} and the other plots use.
 }
 \description{
-把 Tier 0 → Tier 1 →（可选）Tier 2 串起来，返回\strong{一人一行}的宽表。
+The main entry point. Reads your UK Biobank export (or takes the result of
+\code{\link[=ukb_worklife]{ukb_worklife()}}), derives the person-level variables, and returns \strong{one
+row per person}, ready to merge with outcomes or covariates by \code{eid}.
 }
 \details{
-\strong{默认只跑 Tier 0 + Tier 1}（用户 2026-09-21 拍定）：快、不需要模型权重、
-没有分配误差。Tier 2（表征与类型学）用 \code{what = c("latent", "type")} 显式打开。
+The variable groups, chosen with \code{what}:\tabular{lll}{
+   \code{what} \tab What you get \tab Needs \cr
+   \code{"core"} \tab career end and how it was determined, working years, record coverage, quality flags \tab your CSVs \cr
+   \code{"exposure"} \tab years / peak / mean of 10 workplace exposures, shift work, long hours, exposure breadth \tab your CSVs \cr
+   \code{"camsis"} \tab occupational status (CAMSIS) level and trajectory \tab a CAMSIS table (\code{camsis_path}) \cr
+   \code{"movement"} \tab occupational mobility: number and size of moves between occupations \tab the model bundle \cr
+   \code{"latent"} \tab the 192-dimensional career representation \tab the model bundle + torch \cr
+   \code{"type"} \tab career type (clusters re-derived on your sample) \tab the model bundle + torch + igraph \cr
+}
+
+
+Every column is described in \code{\link[=ukb_dictionary]{ukb_dictionary()}}, with advice on how to use
+it. With the default \code{what}, \code{movement} is simply skipped when no bundle is
+given, so \code{ukb_career(path)} works out of the box on your CSVs alone.
 }
 \examples{
 out <- ukb_career(ukb_synth(n = 60), verbose = FALSE)
-names(out)
+out[1:3, c("eid", "career_end", "career_end_source", "work_years",
+           "exposure_breadth")]
 }

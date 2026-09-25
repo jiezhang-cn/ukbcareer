@@ -2,16 +2,25 @@
 # 样本级可视化（用户自己的队列）
 # ══════════════════════════════════════════════════════════════════
 
-#' 状态占比的年龄图 + 与参考队列的差值图
+#' Plot state shares by age, and their difference from the reference cohort
 #'
-#' **必须两张一起看。** 全职占绝大多数在职人年，所以在绝对比例图上，
-#' 型间/组间的差异被挤到顶部一条窄带里几乎看不见 —— 差值图才是信息所在。
+#' Draws a chronogram (stacked share of each labour-market state at each age)
+#' and, if a bundle is supplied, a second panel showing the percentage-point
+#' difference from the reference cohort at the same age.
 #'
-#' @param x [ukb_worklife] / [ukb_career] 的返回值。
-#' @param by 分组列（`cohort` 里的列名，如 `"sex"` / `"type"`）。`NULL` 不分组。
-#' @param bundle 给了就画与参考队列的差值（第二张图）。
-#' @param which `"both"` / `"absolute"` / `"difference"`。
-#' @return 一个 ggplot 对象（`both` 时是 patchwork 拼图）。
+#' **Read the two panels together.** Full-time work accounts for the vast
+#' majority of working person-years, so on the absolute-share panel the
+#' differences between types or groups are squeezed into a thin band at the
+#' top and are almost invisible. The difference panel is where the
+#' information is.
+#'
+#' @param x Output of [ukb_worklife] or [ukb_career].
+#' @param by Grouping column (a column of `cohort`, e.g. `"sex"` or `"type"`).
+#'   `NULL` means no grouping.
+#' @param bundle Output of [ukb_bundle]. If supplied, the difference from the
+#'   reference cohort is drawn as the second panel.
+#' @param which `"both"`, `"absolute"` or `"difference"`.
+#' @return A ggplot object (a patchwork composite when `which = "both"`).
 #' @examples
 #' wl <- ukb_worklife(ukb_synth(n = 200), verbose = FALSE)
 #' plot_chronogram(wl, by = "sex", which = "absolute")
@@ -32,6 +41,12 @@ plot_chronogram <- function(x, by = NULL, bundle = NULL,
     a[, grp := "all"]
   }
   d <- a[, .(n = .N), by = .(grp, age, state_name)]
+  ## 补齐 (grp, age, state) 的 0 格：geom_area 在某龄缺一个状态时会在相邻年龄间
+  ## 插值，堆叠总和因此冲出 100%
+  full <- unique(d[, .(grp, age)])[, .(state_name = factor(STATE_NAMES, levels = STATE_NAMES)),
+                                   by = .(grp, age)]
+  d <- d[full, on = c("grp", "age", "state_name")]
+  d[is.na(n), n := 0L]
   tot <- d[, .(tot = sum(n)), by = .(grp, age)]
   d <- merge(d, tot, by = c("grp", "age"))
   d[, frac := n / tot]
@@ -91,17 +106,22 @@ plot_chronogram <- function(x, by = NULL, bundle = NULL,
 }
 
 
-#' 转换次数的圈图 + 首末变动年龄
+#' Plot the number of occupation changes and the ages at first and last change
 #'
-#' `n_moves` 用圈图（两性内外圈），`first_move_age` / `last_move_age` 用密度。
+#' Shows `n_moves` as a ring chart (one ring per sex) and the distributions of
+#' `first_move_age` / `last_move_age` as density curves (movers only).
 #'
-#' **0 档必须用灰 + 斜纹**：那是"距离类量未定义"的域（一生只报一个职业码的人），
-#' 不是"移动量很小"。用序数色标的最浅色会把它读成连续谱的一端。
+#' **The 0 bin is drawn in grey, not in the colour scale.** It is the set of
+#' people who reported a single occupation code for life, for whom distance
+#' measures are undefined -- not people who "moved very little". Colouring it
+#' with the lightest shade of an ordinal scale would wrongly present it as one
+#' end of a continuum.
 #'
-#' @param x 已经过 [ukb_movement] 的对象。
-#' @param cap `n_moves` 的合并上限。默认 5 —— 参考队列里 8+ 只占 0.5%
-#'   （在圈图上是 1.8 度，画出来是一条线）。
-#' @return 一个 patchwork 拼图。
+#' @param x An object that has been through [ukb_movement].
+#' @param cap Upper bin for `n_moves` (values at or above are pooled). The
+#'   default of 5 reflects that 8+ changes make up only 0.5% of the reference
+#'   cohort (1.8 degrees of the ring -- a single line).
+#' @return A patchwork composite.
 #' @export
 plot_moves <- function(x, cap = 5L) {
   .need_ggplot()
@@ -140,26 +160,31 @@ plot_moves <- function(x, cap = 5L) {
     ggplot2::labs(x = "age", y = "density", title = "Age at first and last change",
                   subtitle = "Movers only",
                   caption = .cap(paste0(
-                    "first/last_move_age are the ONLY Tier-1 measures not based on distance, ",
+                    "first/last_move_age are the ONLY mobility measures not based on distance, ",
                     "and are therefore almost unrelated to the number of changes (rho ~ 0)."))) +
     ukb_theme()
   .stack2(p1, p2)
 }
 
 
-#' 暴露画像：总体负荷 + agent 特异残差
+#' Plot occupational exposure profiles: overall load and agent-specific residuals
 #'
-#' 左：每组的总体暴露负荷（棒糖图）。右：**去掉总体水平之后**每个 agent 的残差
-#' 热图。分两步是因为"哪些组暴露多"与"某组特别暴露于什么"是两个问题，
-#' 混在一张热图里前者会主导后者。
+#' Left panel: the overall exposure load of each group (lollipop chart). Right
+#' panel: a heatmap of each agent's residual **after removing the overall
+#' level**. The two steps answer two different questions -- "which groups are
+#' more exposed overall?" and "what is a given group unusually exposed to?".
+#' In a single heatmap the first would swamp the second.
 #'
-#' 默认用 `mean_*`（时长归一）而不是 `peak_*`：峰值取 max，
-#' **工作年数越多的人越容易碰到高值**，那是机会偏差不是暴露强度。
+#' By default the plot uses `mean_*` (duration-normalised) rather than
+#' `peak_*`. A peak is a maximum, so **people with more working years have
+#' more chances to hit a high value** -- that is an opportunity bias, not
+#' exposure intensity.
 #'
-#' @param x [ukb_career] 的返回值（需要 `exposure`）。
-#' @param by 分组列。
-#' @param metric `"mean"`（默认，时长归一）或 `"peak"`（复现旧口径）。
-#' @return 一个 patchwork 拼图。
+#' @param x Output of [ukb_career] (must include `exposure`).
+#' @param by Grouping column.
+#' @param metric `"mean"` (default, duration-normalised) or `"peak"`
+#'   (reproduces the older definition).
+#' @return A patchwork composite.
 #' @export
 plot_exposure <- function(x, by = "sex", metric = c("mean", "peak")) {
   .need_ggplot()
@@ -216,11 +241,21 @@ plot_exposure <- function(x, by = "sex", metric = c("mean", "peak")) {
 }
 
 
-#' 型构成 vs 参考队列
+#' Plot the career-type composition of your sample next to the reference cohort
 #'
-#' @param x 已经过 [ukb_typology] 的对象。
-#' @param bundle 给了就同时画参考队列的构成。
-#' @return 一个 ggplot 对象。
+#' Bar chart of the share of each career type, by sex. If a bundle is
+#' supplied, the reference cohort's composition is drawn alongside.
+#'
+#' **Your types are not the reference types.** Each set comes from running
+#' Leiden on a different sample, so neither the numbering nor the meaning of
+#' a type carries over. The two are shown side by side only to compare how
+#' fine-grained the partitions are, not to compare type by type. See
+#' [ukb_typology].
+#'
+#' @param x An object that has been through [ukb_typology].
+#' @param bundle Output of [ukb_bundle]. If supplied, the reference cohort's
+#'   composition is drawn as well.
+#' @return A ggplot object.
 #' @export
 plot_type_mix <- function(x, bundle = NULL) {
   .need_ggplot()
@@ -260,11 +295,18 @@ plot_type_mix <- function(x, bundle = NULL) {
 }
 
 
-#' 质控六面板
+#' Plot quality-control checks as deviations from the reference cohort
 #'
-#' @param x [ukb_worklife] / [ukb_career] 的返回值。
-#' @param bundle [ukb_bundle] 的返回值。
-#' @return 一个 ggplot 对象。
+#' Runs [ukb_qc] and plots, for every check that has a reference value
+#' (`kind = "cohort"`), the relative deviation of your sample from the
+#' reference cohort, coloured by status. A `warn` is not necessarily an error
+#' -- it may be a real difference between samples, but you should be able to
+#' explain it. A `fail` must be resolved: it means your definitions differ
+#' from the paper's and the results are not comparable.
+#'
+#' @param x Output of [ukb_worklife] or [ukb_career].
+#' @param bundle Output of [ukb_bundle]; needed to supply the reference values.
+#' @return A ggplot object.
 #' @export
 plot_qc <- function(x, bundle = NULL) {
   .need_ggplot()

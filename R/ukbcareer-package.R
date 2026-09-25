@@ -97,12 +97,13 @@ STATE_NAMES <- c("full_time", "part_time", "unemployed", "home_family",
                  "education", "marginal_work", "health", "retired", "other",
                  "unknown")
 
-## 状态配色。与上游 config.profiles.states 同源，图例文字也要对得上。
+## 状态配色。**逐色取自 codes/config.yaml 的 profiles.states**（tab10），与论文
+## Fig 1a 同一套 —— 上一版在这里写了另一套色，注释却声称同源，图与论文对不上。
 STATE_COLOURS <- c(
-  full_time = "#1f4e79", part_time = "#6699cc", unemployed = "#d62728",
-  home_family = "#9467bd", education = "#2ca02c", marginal_work = "#8c6d1f",
-  health = "#e377c2", retired = "#7f7f7f", other = "#bcbd22",
-  unknown = "#d9d9d9"
+  full_time = "#1f77b4", part_time = "#aec7e8", unemployed = "#d62728",
+  home_family = "#ff7f0e", education = "#2ca02c", marginal_work = "#17becf",
+  health = "#8c564b", retired = "#9467bd", other = "#bcbd22",
+  unknown = "#c7c7c7"
 )
 
 ## 10 个暴露 agent，顺序即 intens 的前 10 维 —— **顺序是契约**，不可重排。
@@ -140,5 +141,9 @@ utils::globalVariables(c(
   "soc_change_next", "soc_f", "soc_l1", "soc_label", "spell_id", "src",
   "start", "state", "state_name", "status", "step", "tenure", "tlab", "to",
   "type", "v", "val", "value_num", "what", "work_years", "x", "y", "yy",
-  "z"
+  "z",
+  # viz-report.R（ggplot2 aes 里的列名）
+  "xmin", "xmax", "ymin", "ymax", "fill", "colour", "label", "size", "xend",
+  "yend", "run", "col", "j", "major", "row", "lo", "hi", "group", "needs",
+  "variable", "description", "interpretation"
 ))

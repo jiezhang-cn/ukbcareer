@@ -6,3 +6,6 @@
 ^\.Rproj\.user$
 ^ukbcareer\.Rcheck$
 ^.*\.tar\.gz$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$

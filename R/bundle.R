@@ -12,7 +12,13 @@
 # **bundle 不随包分发**：受 UKB 材料转让协议约束，走受控下载。它里面没有任何
 # 个体级数据（PLAN §1 第 1 条），但仍需下载方持有自己的 UKB application。
 
-#' 载入 bundle
+#' Load the pretrained model bundle
+#'
+#' The bundle holds the trained occupation embedding and career encoder from
+#' the reference UK Biobank cohort. It is needed only for occupational
+#' mobility (`what = "movement"`), the career representation
+#' (`include_latent = TRUE`) and career types (`what = "type"`). Everything
+#' else in [ukb_career()] works from your own CSV files alone.
 #'
 #' @param path A local bundle directory. This is the only supported route; the
 #'   bundle is distributed under controlled access.
@@ -178,7 +184,8 @@ ukb_bundle <- function(path, verify = TRUE, quiet = FALSE) {
 .bundle_embed <- function(bundle, sex) {
   f <- file.path(bundle$path, sprintf("soc_embed_%s.parquet", sex))
   if (!file.exists(f)) {
-    stop("Missing ", basename(f), " -- Tier 1 (mobility geometry) unavailable")
+    stop("The bundle lacks ", basename(f),
+         " -- occupational mobility measures are unavailable")
   }
   if (!requireNamespace("arrow", quietly = TRUE)) {
     stop("arrow is required to read parquet: install.packages(\"arrow\")")
@@ -195,7 +202,10 @@ ukb_bundle <- function(path, verify = TRUE, quiet = FALSE) {
 #' @noRd
 .encoder_path <- function(bundle, sex) {
   f <- file.path(bundle$path, sprintf("encoder_%s.ts", sex))
-  if (!file.exists(f)) stop("Missing ", basename(f), " -- Tier 2 unavailable")
+  if (!file.exists(f)) {
+    stop("The bundle lacks ", basename(f),
+         " -- the career representation and career types are unavailable")
+  }
   if (.is_ascii_path(f)) return(f)
   cache <- getOption("ukbcareer.ascii_cache",
                      file.path(Sys.getenv("SystemDrive", "C:"),
@@ -225,8 +235,12 @@ print.ukbcareer_bundle <- function(x, ...) {
   cat("  path: ", x$path, "\n", sep = "")
   cat(sprintf("  settings: soc_level %s, max_len %s, ages [%s, %s], d_model %s\n",
               m$soc_level, m$max_len, m$age_min, m$age_max, m$d_model))
-  cat(sprintf("  tiers available: %s\n",
-              paste(names(x$tiers)[unlist(x$tiers)], collapse = " + ")))
+  ## tiers 是内部组织名；给用户看的是"能算什么"
+  can <- c(tier0 = "vocabulary",
+           tier1 = "occupation embedding (mobility)",
+           tier2 = "career encoder (representation, career types)")
+  cat(sprintf("  contains: %s\n",
+              paste(can[names(x$tiers)[unlist(x$tiers)]], collapse = ", ")))
   if (!is.null(m$cluster)) {
     cc <- m$cluster
     cat(sprintf(paste0("  clustering: Leiden resolution %s on an unweighted ",

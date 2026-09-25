@@ -2,21 +2,39 @@
 % Please edit documentation in R/theme.R
 \name{ukb_theme}
 \alias{ukb_theme}
-\title{ukbcareer 的统一图形主题}
+\title{The ggplot2 theme used by all ukbcareer plots}
 \usage{
 ukb_theme(base_size = 9, grid = TRUE)
 }
 \arguments{
-\item{base_size}{基础字号。}
+\item{base_size}{Base font size in points.}
 
-\item{grid}{是否保留浅网格线。}
+\item{grid}{If \code{TRUE}, keep light major grid lines.}
 }
 \value{
-一个 ggplot2 theme 对象。
+A ggplot2 theme object.
 }
 \description{
-ukbcareer 的统一图形主题
+A minimal theme with small, publication-sized text, left-aligned titles and
+captions and a light panel border. Every plot in the package uses it; add it
+to your own ggplots to match their look.
 }
+\section{Plotting conventions used in this package}{
+
+\itemize{
+\item \strong{Zero and "undefined" are drawn light.} Continuous scales use YlGnBu
+(0 = pale yellow), never reversed. Viridis and cividis are dark at 0, and
+dark reads as "something is here" -- misleading when 0 means "nothing
+happened". Undefined values (e.g. distance measures for people who never
+changed occupation) are drawn in grey.
+\item \strong{Small cells are not drawn.} Any group with n < 10 is left blank and
+flagged in the caption; no points, boxes or numbers are shown for it.
+\item \strong{Text on figures is plain ASCII English}, so that PDFs embed fonts
+reliably on every system.
+\item Save figures with \link{ukb_save} rather than \code{ggsave()} directly.
+}
+}
+
 \examples{
 \dontrun{
 library(ggplot2)

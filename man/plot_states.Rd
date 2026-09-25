@@ -2,30 +2,33 @@
 % Please edit documentation in R/viz-person.R
 \name{plot_states}
 \alias{plot_states}
-\title{单人或多人的 9 状态色带}
+\title{Annual state sequences for one or many people}
 \usage{
 plot_states(x, eid = NULL, max_rows = 500L, sort_by = "length")
 }
 \arguments{
-\item{x}{\link{ukb_worklife} / \link{ukb_career} 的返回值，或 \link{ukb_states} 的矩阵。}
+\item{x}{The result of \code{\link[=ukb_worklife]{ukb_worklife()}} or \code{\link[=ukb_career]{ukb_career()}}, or a state
+matrix from \code{\link[=ukb_states]{ukb_states()}}.}
 
-\item{eid}{要画的人。\code{NULL} 时画全部（多人时用光栅化，见 \code{details}）。}
+\item{eid}{People to draw. \code{NULL} (default) draws everyone.}
 
-\item{max_rows}{最多画几行。超过时\strong{等距抽样}而不是取前 n 个 ——
-取前 n 个会系统性偏向 eid 小的人。}
+\item{max_rows}{Maximum number of rows. Larger samples are thinned at
+equal intervals after sorting (not by taking the first rows, which would
+favour low eids).}
 
-\item{sort_by}{行序。\code{"length"} 按观察年数，\code{"first_state"} 按首个状态，
-\code{"none"} 保持原序。}
+\item{sort_by}{Row order: \code{"length"} (years observed), \code{"first_state"} or
+\code{"none"}.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-单人或多人的 9 状态色带
+One row per person, one column per age, coloured by the nine annual
+states. Useful for eyeballing a sample or a career type.
 }
 \details{
-多人时每行只有不到一个像素高，所以用 \code{geom_raster}（光栅化）而不是
-逐行画矩形 —— 后者在几千行时会让 PDF 无法打开。
+Rows are drawn as a raster image, so plots of thousands of people
+stay small and open quickly.
 }
 \examples{
 wl <- ukb_worklife(ukb_synth(n = 60), verbose = FALSE)

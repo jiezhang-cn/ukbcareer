@@ -7,7 +7,7 @@
 
 #' Job event table
 #'
-#' Slot index is job index (the sparse-array structure; see [.slot_cols]).
+#' Slot index is job index (the sparse-array structure; see `.slot_cols()`).
 #' @noRd
 .build_jobs <- function(d, entry, verbose = TRUE) {
   flds <- c(
@@ -310,31 +310,44 @@
 
 
 # ══════════════════════════════════════════════════════════════════
-#' UKB 工作史 ETL
+#' Build clean work-history tables from UK Biobank Category 130
 #'
-#' 把 UKB Category 130（+ Category 123 的 22500）的宽表变成五张干净的表：
-#' job 事件表、gap 事件表、逐年面板、队列表（含 `career_end`）、暴露汇总。
-#' 这是本包 Tier 0 的全部产出，**不需要 bundle、不需要模型权重**。
+#' Turns the wide UK Biobank employment-history export (Category 130, plus
+#' field 22500 from Category 123) into five tidy tables: job spells, gap
+#' spells, a person-year panel, a cohort table (including `career_end`), and a
+#' per-person exposure summary. Everything here is computed from your CSVs
+#' alone -- **no model bundle and no model weights are needed**.
 #'
-#' @param path csv 路径，或一个已读入的 `data.frame` / `data.table`。
-#' @param entry_path Category 123 的 csv 路径（含 `When_occupational_data_entered`）。
-#'   **最容易漏的一个字段**：它在 Category 123 不在 130。缺它会回落到常数
-#'   `fill_year`，代价是 ongoing 记录平均多算约 2 年 = 面板的 5.7%，
-#'   且退休观察率从 56.8% 掉回 27.7% —— 那就不是论文的口径了。
-#' @param covariate_path 协变量 csv 的路径（含 field 31 性别，可能也含 field 34
-#'   出生年）。**真实的 Category 130 导出里通常没有性别列** —— 它是 field 31，
-#'   属于基线数据，要单独提供。
-#' @param sex 性别向量（与行对齐），或列名。缺省时依次在主表、`covariate_path`
-#'   里找 `Sex__0_0` / `p31` / `sex`。
-#' @param fields 覆盖默认列名映射的命名列表，如 `list(soc4 = "my_soc_col")`。
-#' @param age_min,age_max 年龄窗口。`age_max = 75` 是**绑定约束**，
-#'   参考队列 6.7% 的人被它封顶。
-#' @param fill_year `entry_path` 缺失时 ongoing 的回落填充年。
-#' @param verbose 打印各步人数与关键口径的实测占比。
-#' @return `ukbcareer_worklife` 对象（一个列表）：`jobs` / `gaps` / `annual` /
-#'   `cohort` / `exposure`，外加 `attr(x, "ukbcareer")` 里的口径元数据。
+#' @param path Path to the Category 130 CSV, or a `data.frame` / `data.table`
+#'   you have already read in.
+#' @param entry_path Path to the Category 123 CSV that contains
+#'   `When_occupational_data_entered` (field 22500). **This is the field people
+#'   most often forget**, because it lives in Category 123, not 130. Without it
+#'   the function falls back to a constant `fill_year` for ongoing jobs. That
+#'   adds about 2 years per ongoing record on average (5.7% of the panel) and
+#'   drops the share of people with an observed retirement from 56.8% to
+#'   27.7% -- which no longer matches the definitions used in the paper.
+#' @param covariate_path Path to a covariate CSV containing sex (field 31) and
+#'   possibly year of birth (field 34). **Real Category 130 exports usually have
+#'   no sex column**: sex is field 31, part of the baseline data, and has to be
+#'   supplied separately.
+#' @param sex A vector of sex values (aligned with the rows of `path`), or the
+#'   name of a column. If `NULL`, the function looks for `Sex__0_0`, `p31` or
+#'   `sex`, first in the main table and then in `covariate_path`.
+#' @param fields Named list overriding the default column-name mapping, e.g.
+#'   `list(soc4 = "my_soc_col")`.
+#' @param age_min,age_max Age window of the panel. `age_max = 75` is a
+#'   **binding** constraint: it caps 6.7% of people in the reference cohort.
+#' @param fill_year Year used to close ongoing jobs when `entry_path` is not
+#'   supplied.
+#' @param verbose If `TRUE`, print the number of people at each step and the
+#'   observed shares for key definitions.
+#' @return A `ukbcareer_worklife` object (a list) with elements `jobs`, `gaps`,
+#'   `annual`, `cohort` and `exposure`, plus metadata on the definitions used,
+#'   stored in `attr(x, "ukbcareer")`.
 #' @examples
-#' # 用包内的合成假人演示（真实用法把 ukb_synth() 换成你的 csv 路径）
+#' # Demo with the package's synthetic participants
+#' # (for real data, replace ukb_synth() with the path to your CSV)
 #' wl <- ukb_worklife(ukb_synth(n = 40), verbose = FALSE)
 #' names(wl)
 #' @export

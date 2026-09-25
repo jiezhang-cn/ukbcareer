@@ -2,23 +2,28 @@
 % Please edit documentation in R/viz-sample.R
 \name{plot_moves}
 \alias{plot_moves}
-\title{转换次数的圈图 + 首末变动年龄}
+\title{Plot the number of occupation changes and the ages at first and last change}
 \usage{
 plot_moves(x, cap = 5L)
 }
 \arguments{
-\item{x}{已经过 \link{ukb_movement} 的对象。}
+\item{x}{An object that has been through \link{ukb_movement}.}
 
-\item{cap}{\code{n_moves} 的合并上限。默认 5 —— 参考队列里 8+ 只占 0.5\%
-（在圈图上是 1.8 度，画出来是一条线）。}
+\item{cap}{Upper bin for \code{n_moves} (values at or above are pooled). The
+default of 5 reflects that 8+ changes make up only 0.5\% of the reference
+cohort (1.8 degrees of the ring -- a single line).}
 }
 \value{
-一个 patchwork 拼图。
+A patchwork composite.
 }
 \description{
-\code{n_moves} 用圈图（两性内外圈），\code{first_move_age} / \code{last_move_age} 用密度。
+Shows \code{n_moves} as a ring chart (one ring per sex) and the distributions of
+\code{first_move_age} / \code{last_move_age} as density curves (movers only).
 }
 \details{
-\strong{0 档必须用灰 + 斜纹}：那是"距离类量未定义"的域（一生只报一个职业码的人），
-不是"移动量很小"。用序数色标的最浅色会把它读成连续谱的一端。
+\strong{The 0 bin is drawn in grey, not in the colour scale.} It is the set of
+people who reported a single occupation code for life, for whom distance
+measures are undefined -- not people who "moved very little". Colouring it
+with the lightest shade of an ordinal scale would wrongly present it as one
+end of a continuum.
 }

@@ -2,23 +2,25 @@
 % Please edit documentation in R/viz-person.R
 \name{plot_camsis_track}
 \alias{plot_camsis_track}
-\title{单人的 CAMSIS 年龄轨迹}
+\title{Occupational status (CAMSIS) trajectory for one person}
 \usage{
 plot_camsis_track(x, eid)
 }
 \arguments{
-\item{x}{已经过 \link{ukb_camsis} 的对象。}
+\item{x}{A work-life object that has been through \code{\link[=ukb_camsis]{ukb_camsis()}}.}
 
-\item{eid}{要画的人。}
+\item{eid}{The person to draw.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-背景是全样本（或该型）的同龄剖面，前景是这个人自己的轨迹。
+The person's own CAMSIS score by age, over the sample mean among those
+employed at each age.
 }
 \details{
-\strong{背景那条曲线是横断面剖面}（该年龄仍在工作者的均值），不是任何人的纵向路径。
-低地位者退出更早会让它上抬\strong{而无人升迁} —— 所以只能读作"在职者的地位剖面
-随年龄上升"，不可读作"这些人在升迁"。
+The grey background curve is a \emph{cross-sectional} profile (the mean among
+people still working at that age), not anyone's longitudinal path. Because
+lower-status workers tend to leave work earlier, it can rise with age even
+if nobody is promoted.
 }

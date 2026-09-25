@@ -46,3 +46,22 @@ test_that("gap 码到状态的映射覆盖 config 里的全部 gap 码", {
   expect_setequal(as.numeric(names(GAP_TO_STATE)), CODINGS$gap_codes)
   expect_true(all(GAP_TO_STATE %in% 1:10))
 })
+
+test_that("ukb_states 也接受 ukb_career() 的结果", {
+  d <- ukb_synth(n = 60L, seed = 12L)
+  res <- ukb_career(d, verbose = FALSE)
+  st <- ukb_states(res)
+  expect_s3_class(st, "ukbcareer_states")
+  expect_equal(nrow(st), data.table::uniqueN(attr(res, "worklife")$annual$eid))
+})
+
+test_that("结果的派生汇总表按普通 data.table 打印", {
+  res <- ukb_career(ukb_synth(n = 60L, seed = 13L), verbose = FALSE)
+  out <- utils::capture.output(print(res))
+  expect_match(out[1L], "^<ukbcareer_result>")
+  agg <- res[, .N, by = career_end_source]
+  out2 <- utils::capture.output(print(agg))
+  expect_false(any(grepl("ukbcareer_result|Null data.table", out2)))
+  expect_true(any(grepl("career_end_source", out2)))
+  expect_s3_class(agg, "ukbcareer_result")   # 打印不改变对象本身
+})

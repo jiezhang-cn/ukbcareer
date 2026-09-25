@@ -2,7 +2,7 @@
 % Please edit documentation in R/viz-sample.R
 \name{plot_chronogram}
 \alias{plot_chronogram}
-\title{状态占比的年龄图 + 与参考队列的差值图}
+\title{Plot state shares by age, and their difference from the reference cohort}
 \usage{
 plot_chronogram(
   x,
@@ -12,20 +12,30 @@ plot_chronogram(
 )
 }
 \arguments{
-\item{x}{\link{ukb_worklife} / \link{ukb_career} 的返回值。}
+\item{x}{Output of \link{ukb_worklife} or \link{ukb_career}.}
 
-\item{by}{分组列（\code{cohort} 里的列名，如 \code{"sex"} / \code{"type"}）。\code{NULL} 不分组。}
+\item{by}{Grouping column (a column of \code{cohort}, e.g. \code{"sex"} or \code{"type"}).
+\code{NULL} means no grouping.}
 
-\item{bundle}{给了就画与参考队列的差值（第二张图）。}
+\item{bundle}{Output of \link{ukb_bundle}. If supplied, the difference from the
+reference cohort is drawn as the second panel.}
 
-\item{which}{\code{"both"} / \code{"absolute"} / \code{"difference"}。}
+\item{which}{\code{"both"}, \code{"absolute"} or \code{"difference"}.}
 }
 \value{
-一个 ggplot 对象（\code{both} 时是 patchwork 拼图）。
+A ggplot object (a patchwork composite when \code{which = "both"}).
 }
 \description{
-\strong{必须两张一起看。} 全职占绝大多数在职人年，所以在绝对比例图上，
-型间/组间的差异被挤到顶部一条窄带里几乎看不见 —— 差值图才是信息所在。
+Draws a chronogram (stacked share of each labour-market state at each age)
+and, if a bundle is supplied, a second panel showing the percentage-point
+difference from the reference cohort at the same age.
+}
+\details{
+\strong{Read the two panels together.} Full-time work accounts for the vast
+majority of working person-years, so on the absolute-share panel the
+differences between types or groups are squeezed into a thin band at the
+top and are almost invisible. The difference panel is where the
+information is.
 }
 \examples{
 wl <- ukb_worklife(ukb_synth(n = 200), verbose = FALSE)

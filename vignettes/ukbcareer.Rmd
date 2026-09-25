@@ -8,131 +8,227 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", message = FALSE,
+                      fig.align = "center", out.width = "100%")
+has_plots <- requireNamespace("ggplot2", quietly = TRUE) &&
+  requireNamespace("patchwork", quietly = TRUE)
 ```
 
-This walks through the whole pipeline on the synthetic people that ship with the
-package. For real use, replace `ukb_synth()` with your own CSV paths and supply
-the three extra fields described in section 2.
+This vignette takes you from UK Biobank CSV files to a first analysis. Every
+chunk that runs here uses the **synthetic participants** that ship with the
+package, so you can follow along without any UK Biobank data. Where your own
+files come in, the code is shown but not run.
 
-## 1. Five minutes to results (Tier 0, no bundle needed)
+## 1. Try it on synthetic data
 
 ```{r}
 library(ukbcareer)
-d <- ukb_synth(n = 200)          # real use: "ukb_cat130.csv"
-wl <- ukb_worklife(d, verbose = FALSE)
-wl
+
+d <- ukb_synth(n = 200)     # 200 synthetic people in the UK Biobank layout
+res <- ukb_career(d, verbose = FALSE)
+res
 ```
 
-`ukb_career()` chains the tiers together and returns one row per person.
-**By default it runs Tier 0 + 1 only**: fast, no dependency on model weights,
-no assignment error.
+`res` is a `data.table` with one row per person. The printout shows a few key
+columns; `View(res)` shows them all.
+
+To find out what a column means, ask the dictionary:
 
 ```{r}
-out <- ukb_career(d, what = c("core", "exposure"), verbose = FALSE)
-dim(out)
-out[1:3, .(eid, sex, career_end, career_end_source, work_years,
-           exposure_breadth)]
+ukb_dictionary("career_end")
+ukb_dictionary("yrs_high_asbestos")
 ```
 
-Carry `career_end_source` with the data wherever it goes. It separates
-**retirees**, for whom `career_end` is a substantive event, from the
-**administratively censored**, for whom it is merely the edge of the observation
-window. Collapsing the two equates "retired at 53" with "still working when
-recruited at 53".
+`ukb_dictionary()` with no arguments lists every variable, and
+`vignette("variables")` explains each group in more depth.
 
-## 2. Which fields you need
+## 2. Look at one person
 
-Category 130 in full, plus three fields that are **not** in it:
+Before analysing thousands of people, it helps to look at a few. `plot_person()`
+draws a participant's whole work history on one page:
 
-| Field | Where | Why it cannot be skipped |
-| --- | --- | --- |
-| 22500 date questionnaire completed | **Category 123** | The third term of `career_end` is the per-person questionnaire year. A constant instead adds about 2 years to every ongoing record (5.7% of all person-years) and drops the observed-retirement rate from 56.8% to 27.7%. |
-| 31 sex | baseline | The representations are trained separately per sex, and the CAMSIS scale is itself sex-specific. |
-| 34 year of birth | baseline | The anchor of the age axis. If the main table also has one, the package **prefers the baseline value** and reports any disagreement. |
+```{r fig.width = 9, fig.height = 8.5, eval = has_plots}
+plot_person(res, eid = attr(d, "showcase_eid"))
+```
+
+How to read it, from top to bottom:
+
+- **state**: what the person was doing each year (full-time, part-time,
+  unemployed, looking after home and family, education, health problems,
+  retired, ...).
+- **SOC 4-digit ... 1-digit**: the occupation code of each job, from the most
+  detailed to the broadest level of the SOC2000 classification.
+- **gap code**: the reason for each break between jobs.
+- **dt**: how long the person had been in the same occupation (capped at 3
+  years).
+- **jobs + flags**: the number of jobs held that year; a triangle marks a
+  change of occupation, a square marks overlapping jobs.
+- **exposure intensity**: how often each workplace exposure was reported, plus
+  hours and shift work. Each row is scaled to its own maximum; `?` marks
+  "do not know".
+- **Hatched** cells are years not in work, where occupation and exposure are
+  undefined. The red dashed line is `career_end`; nothing after it is analysed.
+
+To make a PDF with one page per person, for example to check a random sample
+of records, use `ukb_report()`:
 
 ```{r eval = FALSE}
-wl <- ukb_worklife("ukb_cat130.csv",
-                   entry_path     = "ukb_cat123.csv",
-                   covariate_path = "ukb_baseline.csv")
+set.seed(1)
+ukb_report(res, eid = sample(res$eid, 50), file = "check_50_people.pdf")
 ```
 
-## 3. Quality control: read it before you use the results
+## 3. Your own UK Biobank data
 
-Your sample is not our reference cohort, and **silent drift in the definitions
-is this package's most dangerous failure mode**. Every check points at one
-specific cause rather than at "data quality" in general:
+You need three exports from your own application:
 
-```{r}
-q <- ukb_qc(wl, quiet = TRUE)
-q[status != "ok", .(check, value, status)]
+| File | Contents |
+| --- | --- |
+| work history | Category 130 in full (jobs, gaps, hours, shifts, exposures) |
+| questionnaire date | field 22500 "When occupational data entered", in **Category 123** |
+| baseline | field 31 (sex) and field 34 (year of birth) |
+
+Field 22500 is the one people most often miss because it is not in Category
+130. Without it the package falls back to a fixed year, which adds about two
+years to every job that was ongoing at the questionnaire and roughly halves the
+share of people with an observed retirement.
+
+```{r eval = FALSE}
+res <- ukb_career("ukb_cat130.csv",
+                  entry_path     = "ukb_cat123.csv",
+                  covariate_path = "ukb_baseline.csv")
 ```
 
-Given a bundle, each item is also compared against the reference cohort. A
-`fail` must be resolved: it means your definitions differ from the paper's and
-the results are not comparable. A `warn` is not necessarily an error -- it may
-be a real difference in sample selection -- but it has to be explainable.
+Columns are expected to be named like `Year_job_started__0_3` (field title,
+instance, array index). If your export names them differently, pass a mapping
+through `ukb_worklife(fields = list(...))` and give the result to
+`ukb_career()`.
 
-## 4. Nine-state annual sequences
+### Check the data first
+
+`ukb_qc()` runs a set of checks, each aimed at one specific way the input can
+go wrong (for example, negative exposure codes that were cleaned away as
+missing, or a missing questionnaire date):
 
 ```{r}
-st <- ukb_states(wl)
+q <- ukb_qc(res, quiet = TRUE)
+q[, .(check, value, status)]
+```
+
+Anything marked `fail` must be fixed before the results are usable. A `warn`
+is not necessarily an error, but you should be able to explain it.
+
+## 4. A first analysis
+
+Merge the variables with your outcomes and covariates by `eid`:
+
+```{r eval = FALSE}
+library(data.table)
+outcomes <- fread("my_outcomes.csv")          # eid, outcome, covariates ...
+dat <- merge(outcomes, res, by = "eid")
+```
+
+A few patterns that come up often (see `vignette("variables")` for more):
+
+```{r}
+# How did careers end?
+res[, .N, by = career_end_source]
+
+# Working years and shift work by sex
+res[, .(median_work_years = median(work_years, na.rm = TRUE),
+        any_shift_work = mean(shift_years > 0, na.rm = TRUE)), by = sex]
+
+# Sensitivity analysis: drop poorly documented histories
+res_complete <- res[flag_incomplete == 0]
+nrow(res_complete)
+```
+
+```{r eval = FALSE}
+# Exposure as cumulative dose, per 10 years at 'often'
+fit <- glm(outcome ~ I(yrs_high_dusty / 10) + work_years + year_birth + sex,
+           family = binomial, data = dat)
+
+# Time to retirement: only "retire" is an event, "cap" is censored
+library(survival)
+fit_ret <- coxph(Surv(career_end, career_end_source == "retire") ~ sex,
+                 data = dat)
+```
+
+## 5. Whole-sample pictures
+
+```{r fig.width = 7, fig.height = 4, eval = has_plots}
+plot_states(res, max_rows = 200)
+```
+
+```{r fig.width = 7, fig.height = 4, eval = has_plots}
+plot_chronogram(res, by = "sex", which = "absolute")
+```
+
+`plot_exposure(res)` summarises the ten exposures by group, and
+`plot_career(res, eid)` gives a compact one-line version of the person report.
+All plots are ggplot objects; `ukb_save()` writes them to PDF or PNG with
+sensible defaults:
+
+```{r eval = FALSE}
+ukb_save(plot_states(res), "states.pdf", width = 7, height = 4)
+```
+
+## 6. Sequence analysis
+
+The nine-state annual sequences can go straight into TraMineR:
+
+```{r}
+st <- ukb_states(res)
 st
 ```
 
-The trailing `NA` **is information, not missingness**: it marks that the career
-ended at `career_end`. Hand the matrix to TraMineR with `as_seqdef(st)`.
-
-## 5. Plots
-
-Three levels -- person, sample, reference -- all returning ggplot objects.
-
-```{r fig.width = 7, fig.height = 2.6}
-plot_career(wl, eid = wl$cohort$eid[4])
+```{r eval = FALSE}
+library(TraMineR)
+sq <- as_seqdef(st)
+seqdplot(sq)
 ```
 
-```{r fig.width = 7, fig.height = 4}
-plot_chronogram(wl, by = "sex", which = "absolute")
-```
+Empty cells at the end of a sequence mean the career had already ended
+(`career_end`); they are not missing data.
 
-On the absolute-share panel the between-group differences are almost invisible,
-because full-time work dominates employed person-years. Given a bundle,
-`plot_chronogram()` also draws the **difference** from the reference cohort at
-the same age, which is where the information actually is.
+## 7. Occupational status (CAMSIS)
 
-Save through `ukb_save()`, the package's single exit point (uniform PDF, font
-embedding, and a sane dpi for the rasterised layers):
+CAMSIS scores measure the social advantage of an occupation. The table is not
+distributed with the package; obtain a SOC2000 version with columns
+`soc2000`, `mcamsis` and `fcamsis`, then:
 
 ```{r eval = FALSE}
-ukb_save(plot_flows(wl, "Female"), "flows.pdf", width = 9, height = 7)
+res <- ukb_career("ukb_cat130.csv", entry_path = "ukb_cat123.csv",
+                  covariate_path = "ukb_baseline.csv",
+                  camsis_path = "camsis_soc2000.csv",
+                  what = c("core", "exposure", "camsis"))
+
+plot_flows(res, "Female")    # occupational flows over the life course
 ```
 
-## 6. Tier 1 and Tier 2
+## 8. Mobility and career types (optional model)
+
+Occupational mobility, the career representation and career types use a model
+pretrained on the UK Biobank reference cohort. It is available on request to
+researchers with their own UK Biobank application (see `BUNDLE-ACCESS.md` on
+the package home page).
 
 ```{r eval = FALSE}
-b <- ukb_bundle("~/ukbcareer_bundle_v5.0")
-ukb_bundle_info(b)          # **read this before using `type`**
+b <- ukb_bundle("~/ukbcareer_bundle_v5.0")   # verifies every file
+ukb_bundle_info(b)                            # read this before using `type`
 
-out <- ukb_career(wl, bundle = b,
-                 what = c("core", "exposure", "movement", "latent", "type"))
+res <- ukb_career("ukb_cat130.csv", entry_path = "ukb_cat123.csv",
+                  covariate_path = "ukb_baseline.csv", bundle = b,
+                  what = c("core", "exposure", "movement", "type"))
+
+plot_type_mix(res)          # what each career type looks like
 ```
 
-Three things you must know. Details in `?ukb_typology`, `?ukb_movement` and the
-README.
+Two things to keep in mind with career types:
 
-1. **Your types are not the paper's types.** Leiden is transductive, so the
-   package re-runs the published recipe on your sample instead of assigning you
-   to our 12 (female) / 9 (male) clusters. What is comparable across studies is
-   the method and the representation, not the partition.
-2. **Check the seed sensitivity.** `ukb_typology()` re-runs with several seeds
-   and reports the median pairwise ARI. On a sample of about 1,000 people we
-   measured 0.28 to 0.73 -- the data did not change and the partition did.
-3. **Mobility geometry is smaller than it looks.** Pairwise distances between
-   the 353 occupation codes are highly concentrated (CV 0.10), so
-   `path_length`, `detour_ratio` and `straightness` are all the number of
-   changes in disguise. The package does not return them.
-
-Per-person perplexity is not returned either. The encoder is bidirectional, so
-per-token loss measures interpolation rather than forecasting: the model gains
-only 0.7% over a rule that copies the two adjacent years, and per-person values
-have an interquartile range of 0.0008. `plot_baselines()` shows this.
+1. **They are found in your sample.** The clustering is re-run on your data
+   with the same settings as the paper, so your type numbers and their meaning
+   are your own. Do not match your type 3 against the paper's.
+2. **Check how stable they are.** `ukb_typology()` repeats the clustering with
+   several random seeds and warns when the results disagree; the numbers are in
+   `attr(types, "diagnostics")`. Describe each type before putting it in a
+   model, and prefer the continuous variables for primary analyses.

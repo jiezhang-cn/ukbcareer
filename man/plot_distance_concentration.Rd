@@ -2,19 +2,29 @@
 % Please edit documentation in R/viz-reference.R
 \name{plot_distance_concentration}
 \alias{plot_distance_concentration}
-\title{码对距离的集中度}
+\title{Plot how concentrated the pairwise distances between occupation codes are}
 \usage{
 plot_distance_concentration(bundle, sex = "Female")
 }
 \arguments{
-\item{bundle}{\link{ukb_bundle} 的返回值。}
+\item{bundle}{Output of \link{ukb_bundle} (needs the SOC embedding,
+\code{soc_embed_*.parquet}).}
 
-\item{sex}{性别。}
+\item{sex}{Sex.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-Tier 1 全部衍生量的\strong{承重事实}。距离近乎三态：0（同码）/ ~19（同 L1 大类内）
-/ ~37（换到别处），而 ~37 占绝大多数。
+Histogram of the distances between every pair of occupation codes in the
+192-dimensional embedding, split into pairs within the same SOC major
+group and pairs across major groups.
+}
+\details{
+This is the \strong{key fact behind every mobility measure} returned by
+\link{ukb_movement}. Distances are nearly three-valued: 0 (same code), about
+19 (within the same L1 major group) and about 37 (anywhere else), with
+about 37 by far the most common. As a consequence, path length, detour
+ratio and straightness are just the number of changes in disguise, which
+is why the package does not return them.
 }

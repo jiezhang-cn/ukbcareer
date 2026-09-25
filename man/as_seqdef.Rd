@@ -2,18 +2,21 @@
 % Please edit documentation in R/states.R
 \name{as_seqdef}
 \alias{as_seqdef}
-\title{转成 TraMineR 的 \code{stslist}}
+\title{Convert state sequences to a TraMineR \code{stslist}}
 \usage{
 as_seqdef(x, ...)
 }
 \arguments{
-\item{x}{\link{ukb_states} 的返回值。}
+\item{x}{Output of \link{ukb_states}.}
 
-\item{...}{传给 \code{TraMineR::seqdef()}。}
+\item{...}{Further arguments passed to \code{TraMineR::seqdef()}.}
 }
 \value{
-一个 \code{stslist}。
+A TraMineR \code{stslist} object.
 }
 \description{
-转成 TraMineR 的 \code{stslist}
+Hands the output of \link{ukb_states} to TraMineR, with the package's state
+labels and colour palette already set, so you can use the usual sequence
+analysis tools (\code{seqdplot()}, \code{seqdist()}, ...). Requires the TraMineR
+package.
 }

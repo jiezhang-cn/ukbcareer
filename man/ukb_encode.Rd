@@ -2,30 +2,43 @@
 % Please edit documentation in R/encode.R
 \name{ukb_encode}
 \alias{ukb_encode}
-\title{冻结表征（latent）}
+\title{Encode careers into the frozen 192-dimensional representation}
 \usage{
 ukb_encode(x, bundle, batch_size = 512L, verbose = TRUE)
 }
 \arguments{
-\item{x}{\link{ukb_worklife} 的返回值。}
+\item{x}{Output of \link{ukb_worklife}.}
 
-\item{bundle}{\link{ukb_bundle} 的返回值（需要 Tier 2）。}
+\item{bundle}{Output of \link{ukb_bundle}; it must contain the encoder.}
 
-\item{batch_size}{批大小。CPU 上 512 是个稳妥值。}
+\item{batch_size}{Batch size for the forward pass. 512 is a safe choice on
+a CPU.}
 
-\item{verbose}{打印进度与表征的基本诊断。}
+\item{verbose}{If \code{TRUE}, print progress and basic diagnostics of the
+representation.}
 }
 \value{
-在 \code{x} 上加一项 \code{latent}：\code{eid} / \code{sex} / \code{z001}…\code{z192}。
+\code{x} with an added element \code{latent}: columns \code{eid}, \code{sex} and
+\code{z001} ... \code{z192}.
 }
 \description{
-对用户样本跑一次前向，得到与论文同一个 192 维空间里的坐标。
-全链条无随机性 —— 同一份输入必须逐位复现。
+Runs your sample once through the pre-trained career encoder, giving each
+person coordinates in the same 192-dimensional space as the paper. The
+whole pipeline is deterministic: the same input always reproduces
+bit-identical output. Requires the model bundle (with its encoder,
+\code{encoder_*.ts}) and the torch package.
 }
 \details{
-\strong{绝不允许一个性别的样本过另一个性别的模型}：表征是分性别独立训练的
-（女性生涯结构不同，且 CAMSIS 量表本身性别特异）。本函数按 \code{sex} 分批，
-各过自己的模型再合并。
+\strong{People are never passed through the other sex's model.} The
+representations were trained separately for each sex (women's careers are
+structured differently, and the CAMSIS scale itself is sex-specific), so
+this function splits the sample by \code{sex}, runs each part through its own
+model, and then combines the results.
+
+With \code{verbose = TRUE} it also prints the effective rank of the
+representation (about 33 in the reference cohort; a value in single
+digits suggests collapse, while a somewhat lower value in a much smaller
+sample is just a sample-size effect).
 }
 \examples{
 \dontrun{

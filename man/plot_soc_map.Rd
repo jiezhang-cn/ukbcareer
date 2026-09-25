@@ -2,28 +2,39 @@
 % Please edit documentation in R/viz-reference.R
 \name{plot_soc_map}
 \alias{plot_soc_map}
-\title{353 个职业码的嵌入地图}
+\title{Map of the 353 occupation codes in the embedding space}
 \usage{
 plot_soc_map(bundle, sex = "Female", label_top = 12L)
 }
 \arguments{
-\item{bundle}{\link{ukb_bundle} 的返回值。}
+\item{bundle}{Output of \link{ukb_bundle}.}
 
-\item{sex}{性别。\strong{两性的坐标系无关}（编码器与投影都是分性别 fit 的），
-不可对位比较。}
+\item{sex}{Sex. \strong{The two sexes have unrelated coordinate systems} (the
+encoder and the projection are fitted separately for each sex), so
+positions cannot be compared across sexes.}
 
-\item{label_top}{标注人年数最多的前几个码。}
+\item{label_top}{Number of codes with the most person-years to label.}
 }
 \value{
-一个 ggplot 对象。
+A ggplot object.
 }
 \description{
-点 = 一个 4 位 SOC2000 码（\strong{不是一个人}），大小 = 人年数，颜色 = L1 大类。
-坐标直接来自 bundle，与论文图同一个坐标系 —— 可以逐点对读。
+Plots the 2-D map of occupation codes from the model bundle. Each point is
+one 4-digit SOC2000 code (\strong{not one person}); point size is the number of
+person-years with that code, and colour is the SOC major group (L1). The
+coordinates are taken directly from the bundle, so they are in the same
+coordinate system as the paper's figure and can be compared point by point.
+No individual-level data are needed.
 }
 \details{
-9 个大类用 Dark2 系，\strong{刻意不含蓝红}（那两色留给性别编码）。
-大类名标在团的\strong{上沿}而不是团心 —— 标团心会与人年数最多的锚点码号叠在一起。
+The 9 major groups use a Dark2-style palette that \strong{deliberately avoids
+blue and red} (reserved for sex). Major-group labels sit at the \strong{top
+edge} of each cluster rather than its centre, where they would overlap
+the labels of the codes with the most person-years.
+
+Keep in mind that the embedding is partly learned from which codes occur
+next to each other in careers, so "similar jobs sit close together" is
+partly true by construction.
 }
 \examples{
 \dontrun{

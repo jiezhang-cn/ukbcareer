@@ -2,7 +2,7 @@
 % Please edit documentation in R/typology.R
 \name{ukb_typology}
 \alias{ukb_typology}
-\title{职业生涯类型学}
+\title{Career typology: re-run Leiden clustering on your own sample}
 \usage{
 ukb_typology(
   x,
@@ -17,40 +17,79 @@ ukb_typology(
 )
 }
 \arguments{
-\item{x}{已经过 \link{ukb_encode} 的对象。}
+\item{x}{An object that has been through \link{ukb_encode}.}
 
-\item{bundle}{\link{ukb_bundle} 的返回值。}
+\item{bundle}{Output of \link{ukb_bundle}.}
 
-\item{resolution, knn_k, min_cluster_frac, min_cluster_n}{口径参数。
-\code{NULL} 表示从 bundle 读（推荐）。}
+\item{resolution, knn_k, min_cluster_frac, min_cluster_n}{Clustering settings.
+\code{NULL} (recommended) reads them from the bundle.}
 
-\item{seed}{随机种子。Leiden 有随机性，\strong{R 的 igraph 与 Python 的 leidenalg
-种子语义不通} —— 同一份数据在两边不会得到逐位相同的标签（但 K 与整体结构
-应当一致）。}
+\item{seed}{Random seed. Leiden is stochastic, and \strong{seeds in R's igraph
+and Python's leidenalg are not equivalent}: the same data will not give
+bit-identical labels in the two languages (though K and the overall
+structure should agree).}
 
-\item{n_seeds}{用几个不同的种子重跑以\strong{测量分区对种子的敏感性}，默认 5。
-结果落在 \code{attr(x$types, "diagnostics")[[sex]]$seed_ari}（两两 ARI 的中位数）。
-设 1 可跳过（快，但拿不到这个数）。
-\strong{这个数很重要}：实测在约 1,000 人的样本上，只换一个种子 ARI 就能掉到
-0.28–0.73 —— 即数据完全不变、分区却变了。把 \code{type} 当确定分组丢进回归前
-必须先看它。}
+\item{n_seeds}{Number of different seeds to run in order to \strong{measure how
+sensitive the partition is to the seed} (default 5). The result is stored
+in \code{attr(x$types, "diagnostics")[[sex]]$seed_ari} (median pairwise ARI).
+Set to 1 to skip (faster, but you lose this number). \strong{This number
+matters}: in a sample of about 1,000 people, changing only the seed
+brought the ARI down to 0.28-0.73 -- the data did not change, yet the
+partition did. Check it before entering \code{type} into a regression as if it
+were a fixed grouping.}
 
-\item{verbose}{打印 K、簇规模、支配度诊断与种子敏感性。}
+\item{verbose}{If \code{TRUE}, print K, cluster sizes, dominance diagnostics and
+seed sensitivity.}
 }
 \value{
-在 \code{x} 上加一项 \code{types}：\code{eid} / \code{sex} / \code{type}。
-另加 \code{attr(x$types, "diagnostics")}：每个性别的 K、最大簇占比、规模熵比、
-以及两个\strong{支配度}诊断（簇是不是职业码的重新表述、是不是 career_end 的函数）。
+\code{x} with an added element \code{types} (columns \code{eid}, \code{sex}, \code{type}).
+\code{attr(x$types, "diagnostics")} holds, for each sex, K, the largest
+cluster's share, the size-entropy ratio, seed sensitivity, and two
+\strong{dominance} diagnostics: whether a cluster is just a restatement of an
+occupation code (\code{max_cluster_soc_purity}, \code{nmi_mode_soc}) and whether
+the typology is a function of \code{career_end} (\code{nmi_career_end_decile}).
+Warnings are issued if seed sensitivity is high (median ARI < 0.80) or if
+any type falls below the minimum cluster size.
 }
 \description{
-在你自己的样本上按论文的口径重跑 Leiden：\verb{resolution 0.2}（预先固定，无搜索）、
-原始 192 维表征的无权 30-NN 图、簇下界 \verb{max(0.005n, 500)}。
-参数默认从 bundle 的 \code{MANIFEST.json} 读，\strong{不在 R 代码里硬编码}。
+Clusters people into career types using the same method as the paper,
+applied to your sample: Leiden with \code{resolution = 0.2} (fixed in advance,
+no search), on an unweighted 30-nearest-neighbour graph built from the raw
+192-dimensional representations, with a minimum cluster size of
+\code{max(0.005 * n, 500)}. By default these settings are read from the
+bundle's \code{MANIFEST.json} rather than hard-coded in R. Requires the output
+of \link{ukb_encode} (which needs the model bundle's encoder and the torch
+package) and the igraph package.
 }
 \details{
-分性别独立跑 —— 两性的表征来自两个独立训练的编码器，
-把它们放进同一个图里聚类没有意义。
+Each sex is clustered separately: the two sexes' representations come
+from two independently trained encoders, so clustering them in one graph
+would be meaningless.
 }
+\section{Same method, not the same partition}{
+
+Leiden is transductive -- it has no \code{predict()}. So this function does
+\strong{not} assign your participants to the published 12 (women) / 9 (men)
+types. It re-runs the clustering on your sample with the same settings.
+When you write up, make clear that:
+\itemize{
+\item Your types are \strong{not} the paper's T0-T11. Neither the numbering nor the
+meaning carries over, and K will probably differ.
+\item What is comparable across studies is the \strong{method and the
+representation} (the same frozen encoder, the same clustering settings),
+not the partition. Do not interpret your "T3" against the paper's "T3".
+\item The upside: there is no assignment error, and no cluster centres need to
+be distributed.
+}
+
+You should also know how stable the partition itself is. In the reference
+cohort the bootstrap ARI was 0.515 for women (below the pre-registered
+0.60 reference line) and 0.618 for men; the largest cluster held 48.1\% of
+women; and one type had an SOC purity of 0.995 (it is essentially a single
+occupation code). These are properties of the method and apply to your
+sample too. \link{ukb_bundle_info} prints these numbers.
+}
+
 \examples{
 \dontrun{
 wl <- ukb_typology(wl, bundle = b)
