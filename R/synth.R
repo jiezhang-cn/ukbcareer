@@ -63,11 +63,14 @@ SHOWCASE <- list(
 #' [plot_person()] and on the package home page.
 #'
 #' The first 13 people are hand-built edge cases, each exercising one rule of
-#' the data processing (they are what the package's tests check):
+#' the data processing (they are what the package's tests check). Apart from
+#' that one rule they are ordinary-looking careers -- several jobs, part-time
+#' spells, education and family-care breaks, exposures that change with the
+#' occupation -- so their pages in [plot_person()] look like real ones:
 #'
 #' | # | Case | What it tests |
 #' |---|---|---|
-#' | 1 | one job with normal start and end | baseline |
+#' | 1 | ordinary career with normal start and end years | baseline |
 #' | 2 | ongoing job (`end = -313`) | filled with the per-person questionnaire year |
 #' | 3 | retirement gap (108), no work afterwards | `career_end_source = "retire"` |
 #' | 4 | **works again after retiring** | the first retirement year must not cut the history |
@@ -170,30 +173,86 @@ ukb_synth <- function(n = 200L, seed = 42L, max_slots = 12L) {
     gstart[i, k] <<- s; gend[i, k] <<- e; gcode[i, k] <<- code
   }
 
-  ## ── 1..12：手工构造的边界情形 ──────────────────────────────
-  add_job(1L, 1L, 1962, 2000, socs[4L])                       # 基线
-  add_job(2L, 1L, 1968, CODINGS$ongoing, socs[2L])            # ongoing
-  add_job(3L, 1L, 1970, 2008, socs[5L])                       # 退休后无在职年
-  add_gap(3L, 1L, 2009, CODINGS$ongoing, CODINGS$gap_retirement)
-  add_job(4L, 1L, 1972, 2005, socs[6L])                       # 退休后**仍有**在职年
+  ## ── 1..13：手工构造的边界情形 ──────────────────────────────
+  ## 每人只测一条规则（行末注释），但**都穿成一份像样的生涯**：几份工作、兼职/
+  ## 全职、照护或教育中断、随职业变的暴露与倒班 —— 用户最先看到的就是这 13 人
+  ## （README 的 `ukb_report(res, eid = res$eid[1:20])`），一条蓝带配全黄的暴露
+  ## 会让人以为包画不出东西。**加料不能碰被测的那条规则**，改前先看 test-etl.R。
+  ## 这一段不抽随机数（test-synth 要求 1..13 与 seed、n 无关）。
+  lv <- function(...) {                   # 暴露级别：未列出的 agent 为 0，NA = 答"不知道"
+    v <- stats::setNames(rep(0, length(EXPOSURES)), EXPOSURES)
+    a <- c(...)
+    v[names(a)] <- a
+    unname(v)
+  }
+  G <- c(marginal = 101, other = 102, education = 103, family = 105,
+         health = 106, unemployed = 107)
+  # #1 普通生涯：读书 → 文员 → 照护 → 回来当护士，先兼职后全职带夜班
+  add_gap(1L, 1L, 1956, 1958, G[["education"]])
+  add_job(1L, 1L, 1959, 1963, 4122, hours = 38, exp_lv = lv(cigarette = 1))
+  add_gap(1L, 2L, 1964, 1970, G[["family"]])
+  add_job(1L, 2L, 1971, 1979, 3211, hours = 20, exp_lv = lv(cigarette = 1))
+  add_job(1L, 3L, 1980, 2000, 3211, hours = 37, sh = 2, exp_lv = lv(cigarette = 1, hot = 1))
+  # #2 ongoing（录入年 2016）：医学院 → 医生，年轻时长工时夜班
+  add_gap(2L, 1L, 1963, 1967, G[["education"]])
+  add_job(2L, 1L, 1968, 1979, 2211, hours = 56, sh = 2, exp_lv = lv(cigarette = 2))
+  add_job(2L, 2L, 1980, CODINGS$ongoing, 2211, hours = 45, exp_lv = lv(cigarette = 1))
+  # #3 退休后无在职年
+  add_job(3L, 1L, 1964, 1969, 7111, hours = 40, exp_lv = lv(cigarette = 2, cold = 1))
+  add_gap(3L, 1L, 1970, 1976, G[["family"]])
+  add_job(3L, 2L, 1977, 1990, 4122, hours = 18, exp_lv = lv(cigarette = 1))
+  add_job(3L, 3L, 1991, 2008, 4122, hours = 36)
+  add_gap(3L, 2L, 2009, CODINGS$ongoing, CODINGS$gap_retirement)
+  # #4 退休后**仍有**在职年：普工 → 汽修 → 退休 → 兼职开车
+  add_job(4L, 1L, 1966, 1971, 9139, hours = 44, exp_lv = lv(noisy = 1, dusty = 2, cold = 1))
+  add_job(4L, 2L, 1972, 2005, 5231, hours = 45,
+          exp_lv = lv(noisy = 2, fumes = 2, dusty = 1, asbestos = 1, paints = 1, diesel = 2))
   add_gap(4L, 1L, 2006, 2008, CODINGS$gap_retirement)
-  add_job(4L, 2L, 2009, 2013, socs[4L])
-  add_job(5L, 1L, 1975, 1995, socs[3L])                       # 真并行：跨过 1990
-  add_job(5L, 2L, 1990, 1990, socs[7L])
-  add_job(6L, 1L, 1978, 1999, socs[8L])                       # 衔接：同年起止
-  add_job(6L, 2L, 1999, 2012, socs[9L])
-  add_job(7L, 1L, 1976, 1985, socs[10L])                      # 末次工作很早
-  add_job(8L, 1L, 1955, CODINGS$ongoing, socs[1L])            # 跨过 age_max 75
-  add_job(9L, 1L, 1980, 2010, socs[5L])                       # 暴露全 DK
-  for (nm in EXPOSURES) expo[[nm]][9L, 1L] <- CODINGS$exposure_dk
-  add_gap(10L, 1L, 1979, 2010, CODINGS$gap_health)            # 只有 gap
+  add_job(4L, 3L, 2009, 2013, 8211, hours = 24, exp_lv = lv(diesel = 2, noisy = 1))
+  # #5 真并行：兼职教书期间，1990 年一份严格落在里面的短工
+  add_gap(5L, 1L, 1970, 1974, G[["education"]])
+  add_job(5L, 1L, 1975, 1980, 2314, hours = 40, exp_lv = lv(noisy = 1, cigarette = 1))
+  add_gap(5L, 2L, 1981, 1985, G[["family"]])
+  add_job(5L, 2L, 1986, 1995, 2314, hours = 24, exp_lv = lv(noisy = 1))
+  add_job(5L, 3L, 1990, 1990, 6121, hours = 8, exp_lv = lv(noisy = 1))
+  add_job(5L, 4L, 1996, 2012, 2314, hours = 38, exp_lv = lv(noisy = 1))
+  # #6 衔接：店员 1999 年离职、同年开货车（长工时、夜班、柴油尾气）
+  add_gap(6L, 1L, 1976, 1977, G[["unemployed"]])
+  add_job(6L, 1L, 1978, 1999, 7111, hours = 40, exp_lv = lv(cigarette = 1))
+  add_job(6L, 2L, 1999, 2012, 8211, hours = 52, sh = 2,
+          exp_lv = lv(diesel = 2, noisy = 1, cold = 1, fumes = 1))
+  # #7 末次工作很早（28 岁起在家带孩子，没有退休记录）
+  add_gap(7L, 1L, 1974, 1975, G[["education"]])
+  add_job(7L, 1L, 1976, 1980, 9139, hours = 39, sh = 1, exp_lv = lv(noisy = 2, dusty = 2, cold = 1))
+  add_job(7L, 2L, 1981, 1985, 9139, hours = 20, exp_lv = lv(noisy = 1, dusty = 1))
+  add_gap(7L, 2L, 1986, CODINGS$ongoing, G[["family"]])
+  # #8 跨过 age_max 75：汽修起家，后来当厂长，一直干到问卷时
+  add_job(8L, 1L, 1955, 1964, 5231, hours = 46,
+          exp_lv = lv(noisy = 2, fumes = 1, asbestos = 1, diesel = 1, dusty = 1))
+  add_job(8L, 2L, 1965, CODINGS$ongoing, 1121, hours = 50, exp_lv = lv(noisy = 1))
+  # #9 暴露全答"不知道"（**每一份**工作都全 DK，否则 peak 不再是 NA）
+  dk <- rep(NA_real_, length(EXPOSURES))
+  add_gap(9L, 1L, 1976, 1979, G[["education"]])
+  add_job(9L, 1L, 1980, 1989, 4122, hours = 38, exp_lv = dk)
+  add_gap(9L, 2L, 1990, 1996, G[["family"]])
+  add_job(9L, 2L, 1997, 2010, 4122, hours = 22, exp_lv = dk)
+  # #10 只有 gap：读书 → 失业 → 因病无法工作
+  add_gap(10L, 1L, 1963, 1968, G[["education"]])
+  add_gap(10L, 2L, 1969, 1978, G[["unemployed"]])
+  add_gap(10L, 3L, 1979, 2010, CODINGS$gap_health)
   add_job(11L, 1L, 2000, 1980, socs[3L])                      # 起止颠倒 → 剔除
-  add_job(12L, 1L, 1974, 2004, 9999)                          # 词表外码
+  # #12 词表外码：未知职业那份工作的暴露与倒班照样有
+  add_job(12L, 1L, 1969, 1973, 9139, hours = 42, exp_lv = lv(noisy = 1, dusty = 1))
+  add_job(12L, 2L, 1974, 2004, 9999, hours = 42, sh = 1,
+          exp_lv = lv(noisy = 2, hot = 1, fumes = 1))
+  add_gap(12L, 1L, 2005, CODINGS$ongoing, CODINGS$gap_retirement)
   # #13 窗口内有十几年空白（既无 job 也无 gap 记录）→ coverage < 0.5。
   # **这是 coverage 分母必须是 career_end 的检验点**：用 age_recruit 作分母时
   # 比值系统性 ≥ 1、flag_incomplete 恒为 0，这条规则完全空转。
-  add_job(13L, 1L, 1958, 1963, socs[7L])                      # 16–21 岁
-  add_job(13L, 2L, 1998, CODINGS$ongoing, socs[4L])           # 56–73 岁，中间空 34 年
+  # **1964–1997 之间不许加任何记录。**
+  add_job(13L, 1L, 1958, 1963, 6121, hours = 40, exp_lv = lv(noisy = 1))            # 16–21 岁
+  add_job(13L, 2L, 1998, CODINGS$ongoing, 3211, hours = 16, sh = 2,
+          exp_lv = lv(hot = 1))                                                      # 56–73 岁
 
   ## ── N_BRANCH+1 .. n：按参考生涯类型分层的随机生涯 ─────────────
   ## 参数全部来自 inst/extdata/synth_calibration.json（UKB 参考队列的聚合量），

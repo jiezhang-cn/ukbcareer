@@ -36,9 +36,12 @@ illness break, nursing, and retirement at 59. It is the example used by
 \code{\link[=plot_person]{plot_person()}} and on the package home page.
 
 The first 13 people are hand-built edge cases, each exercising one rule of
-the data processing (they are what the package's tests check):\tabular{lll}{
+the data processing (they are what the package's tests check). Apart from
+that one rule they are ordinary-looking careers -- several jobs, part-time
+spells, education and family-care breaks, exposures that change with the
+occupation -- so their pages in \code{\link[=plot_person]{plot_person()}} look like real ones:\tabular{lll}{
    # \tab Case \tab What it tests \cr
-   1 \tab one job with normal start and end \tab baseline \cr
+   1 \tab ordinary career with normal start and end years \tab baseline \cr
    2 \tab ongoing job (\code{end = -313}) \tab filled with the per-person questionnaire year \cr
    3 \tab retirement gap (108), no work afterwards \tab \code{career_end_source = "retire"} \cr
    4 \tab \strong{works again after retiring} \tab the first retirement year must not cut the history \cr
