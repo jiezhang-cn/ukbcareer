@@ -32,3 +32,6 @@ inst/doc
 Thumbs.db
 .vscode/
 *~
+
+# ── UKB Git 审计工具的报告（含疑似 eid 的上下文，绝不提交）──────────
+ukb_audit_reports/

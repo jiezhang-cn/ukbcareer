@@ -12,18 +12,21 @@ is the showcase career.}
 
 \item{seed}{Random seed.}
 
-\item{max_slots}{Number of job and gap slots (real exports have 40 / 33).}
+\item{max_slots}{Number of job and gap slots (real exports have 40 / 33).
+Histories with more jobs or breaks than this are cut at the last slot.}
 }
 \value{
 A \code{data.table} in the layout of a UK Biobank export, ready for
-\code{\link[=ukb_worklife]{ukb_worklife()}}. \code{attr(x, "branches")} names the edge cases and
-\code{attr(x, "showcase_eid")} gives the eid of the showcase career.
+\code{\link[=ukb_worklife]{ukb_worklife()}}. \code{attr(x, "branches")} names the edge cases,
+\code{attr(x, "showcase_eid")} gives the eid of the showcase career and
+\code{attr(x, "reference_type")} the reference type behind each random person.
 }
 \description{
 Generates a table that looks like a real UK Biobank Category 130 export --
 same column names (\verb{<Name>__0_<slot>}), same codings (negative exposure
 codes, \code{-313} = ongoing) -- so you can try every function in the package
-without touching real data. It contains no real person.
+without touching real data. It contains no real person, and its eids
+(9000001 onwards) lie outside the range of real UK Biobank eids.
 }
 \details{
 The \strong{last person (eid 9900001) is a showcase career}: education, a
@@ -51,7 +54,31 @@ the data processing (they are what the package's tests check):\tabular{lll}{
 }
 
 
-Everyone else is random, to give a sample large enough to plot.
+\strong{Everyone else is drawn to resemble the real UK Biobank cohort.} Each
+random person is given a sex and one of the reference career types of the
+accompanying paper (12 for women, 9 for men, in their observed proportions),
+and their history is generated from that type's aggregate profile: the
+occupations it contains (four-digit SOC 2000, and job-to-job moves only
+along code pairs actually observed), when careers start and end, how often
+and why they are interrupted (family care, marginal work, education,
+unemployment, illness), retirement age, part-time work, long hours, night
+shifts, the ten workplace exposures and how often each is answered "do not
+know". As a result a sample of a few thousand reproduces the reference
+cohort's headline figures -- median end of working life 58 (women) and 60
+(men), about half ending in retirement, 34 and 40 working years, women's
+long family-care breaks, men's manual-work exposures -- closely enough for
+realistic examples and teaching. It is still synthetic: rare combinations,
+long-range dependencies within a life and associations with health are not
+modelled, so \strong{never use it to draw substantive conclusions}.
+
+The profiles are stored in \code{system.file("extdata", "synth_calibration.json", package = "ukbcareer")}. They are aggregate statistics only (shares,
+medians, counts), computed by the package authors under their UK Biobank
+application: every cell describing fewer than 10 people is set to 0, the
+counts behind every share are rounded to the nearest 10, code pairs seen
+fewer than 10 times are dropped, and no individual record or
+participant identifier is included. \code{attr(x, "reference_type")} gives the
+type each random person was drawn from (\code{NA} for the hand-built people);
+it is a generating label, not what \code{\link[=ukb_typology]{ukb_typology()}} will find in the sample.
 }
 \examples{
 d <- ukb_synth(n = 40)

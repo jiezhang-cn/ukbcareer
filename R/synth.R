@@ -17,6 +17,10 @@ N_BRANCH <- 13L
 ##   44                     一份短工夹在长工作中间 → is_parallel
 ##   48–49                  因病中断（106）；回来后换了码 → dt 重置
 ##   59                     退休（108）→ career_end = 59，其后是 PAD
+## 合成 eid 一律在 9000001 起：真实 eid 是首位 1–6 的 7 位数（上限六百五十万），
+## UKB 的 Git 审计工具与每日监测按这个区间扫仓库 —— 合成 id 落在区间里会被当成
+## 疑似泄露。**注释里也别写出区间端点的数字**，它们本身就会命中
+SYNTH_EID0 <- 9000000L
 SHOWCASE <- list(
   eid = 9900001L,
   year_birth = 1950L,
@@ -49,7 +53,8 @@ SHOWCASE <- list(
 #' Generates a table that looks like a real UK Biobank Category 130 export --
 #' same column names (`<Name>__0_<slot>`), same codings (negative exposure
 #' codes, `-313` = ongoing) -- so you can try every function in the package
-#' without touching real data. It contains no real person.
+#' without touching real data. It contains no real person, and its eids
+#' (9000001 onwards) lie outside the range of real UK Biobank eids.
 #'
 #' The **last person (eid 9900001) is a showcase career**: education, a
 #' clerical job, a family-care break, part-time then full-time work in the same
@@ -76,15 +81,42 @@ SHOWCASE <- list(
 #' | 12 | SOC code outside the vocabulary | treated as unknown |
 #' | 13 | decades with no record inside the window | `coverage < 0.5`, `flag_incomplete = 1` |
 #'
-#' Everyone else is random, to give a sample large enough to plot.
+#' **Everyone else is drawn to resemble the real UK Biobank cohort.** Each
+#' random person is given a sex and one of the reference career types of the
+#' accompanying paper (12 for women, 9 for men, in their observed proportions),
+#' and their history is generated from that type's aggregate profile: the
+#' occupations it contains (four-digit SOC 2000, and job-to-job moves only
+#' along code pairs actually observed), when careers start and end, how often
+#' and why they are interrupted (family care, marginal work, education,
+#' unemployment, illness), retirement age, part-time work, long hours, night
+#' shifts, the ten workplace exposures and how often each is answered "do not
+#' know". As a result a sample of a few thousand reproduces the reference
+#' cohort's headline figures -- median end of working life 58 (women) and 60
+#' (men), about half ending in retirement, 34 and 40 working years, women's
+#' long family-care breaks, men's manual-work exposures -- closely enough for
+#' realistic examples and teaching. It is still synthetic: rare combinations,
+#' long-range dependencies within a life and associations with health are not
+#' modelled, so **never use it to draw substantive conclusions**.
+#'
+#' The profiles are stored in `system.file("extdata", "synth_calibration.json",
+#' package = "ukbcareer")`. They are aggregate statistics only (shares,
+#' medians, counts), computed by the package authors under their UK Biobank
+#' application: every cell describing fewer than 10 people is set to 0, the
+#' counts behind every share are rounded to the nearest 10, code pairs seen
+#' fewer than 10 times are dropped, and no individual record or
+#' participant identifier is included. `attr(x, "reference_type")` gives the
+#' type each random person was drawn from (`NA` for the hand-built people);
+#' it is a generating label, not what [ukb_typology()] will find in the sample.
 #'
 #' @param n Total number of people (at least 13). With `n > 13` the last one
 #'   is the showcase career.
 #' @param seed Random seed.
 #' @param max_slots Number of job and gap slots (real exports have 40 / 33).
+#'   Histories with more jobs or breaks than this are cut at the last slot.
 #' @return A `data.table` in the layout of a UK Biobank export, ready for
-#'   [ukb_worklife()]. `attr(x, "branches")` names the edge cases and
-#'   `attr(x, "showcase_eid")` gives the eid of the showcase career.
+#'   [ukb_worklife()]. `attr(x, "branches")` names the edge cases,
+#'   `attr(x, "showcase_eid")` gives the eid of the showcase career and
+#'   `attr(x, "reference_type")` the reference type behind each random person.
 #' @examples
 #' d <- ukb_synth(n = 40)
 #' wl <- ukb_worklife(d, verbose = FALSE)
@@ -102,10 +134,9 @@ ukb_synth <- function(n = 200L, seed = 42L, max_slots = 12L) {
   ## 每人：出生年、性别、录入年
   n_rand <- max(n - N_BRANCH, 0L)
   yb <- c(1940L, 1945L, 1948L, 1950L, 1952L, 1955L, 1958L, 1935L, 1960L,
-          1947L, 1951L, 1953L, 1942L,
-          sample(1937:1965, n_rand, replace = TRUE))
+          1947L, 1951L, 1953L, 1942L, rep(NA_integer_, n_rand))
   sex <- c(0L, 1L, 0L, 1L, 0L, 1L, 0L, 1L, 0L, 1L, 0L, 1L, 0L,
-           sample(0:1, n_rand, replace = TRUE))
+           rep(NA_integer_, n_rand))
   entry <- rep(2015L, n)
   entry[c(2L, 5L)] <- 2016L
 
@@ -117,18 +148,23 @@ ukb_synth <- function(n = 200L, seed = 42L, max_slots = 12L) {
   names(expo) <- EXPOSURES
   gcode <- mk(); gstart <- mk(); gend <- mk()
 
-  ## 常用的 SOC 码（取自真实 SOC2000 的几个大类）
+  ## 边界情形用的 SOC 码（取自真实 SOC2000 的几个大类）
   socs <- c(1121, 2211, 2314, 3211, 4122, 5231, 6121, 7111, 8211, 9139)
 
-  add_job <- function(i, k, s, e, code, hours = 35, sh = 0, exp_lv = 0) {
+  ## exp_lv：标量（10 个 agent 同级）或长度 10 的向量（0/1/2，NA = 答"不知道"）。
+  ## hc 非 NA 时写分档工时（22604）而不写精确工时 —— 真实导出里二者逐槽互斥。
+  add_job <- function(i, k, s, e, code, hours = 35, sh = 0, exp_lv = 0,
+                      hc = NA_real_, br = 0) {
     jstart[i, k] <<- s; jend[i, k] <<- e; soc[i, k] <<- code
-    hex[i, k] <<- hours
+    if (is.na(hc)) hex[i, k] <<- hours else hcat[i, k] <<- hc
     shift_any[i, k] <<- if (sh > 0) 1 else 0
     if (sh == 2) shift_night[i, k] <<- 1 else shift_night[i, k] <<- 9
     shift_mix[i, k] <<- 9
-    breath[i, k] <<- 0
-    lv <- c(0, -131, -141)[exp_lv + 1L]
-    for (nm in EXPOSURES) expo[[nm]][i, k] <<- lv
+    breath[i, k] <<- br
+    lv <- rep_len(exp_lv, length(EXPOSURES))
+    code_lv <- c(0, -131, -141)[lv + 1L]
+    code_lv[is.na(lv)] <- CODINGS$exposure_dk
+    for (a in seq_along(EXPOSURES)) expo[[EXPOSURES[a]]][i, k] <<- code_lv[a]
   }
   add_gap <- function(i, k, s, e, code) {
     gstart[i, k] <<- s; gend[i, k] <<- e; gcode[i, k] <<- code
@@ -159,26 +195,43 @@ ukb_synth <- function(n = 200L, seed = 42L, max_slots = 12L) {
   add_job(13L, 1L, 1958, 1963, socs[7L])                      # 16–21 岁
   add_job(13L, 2L, 1998, CODINGS$ongoing, socs[4L])           # 56–73 岁，中间空 34 年
 
-  ## ── N_BRANCH+1 .. n：随机 ──────────────────────────────────
-  if (n > N_BRANCH) for (i in (N_BRANCH + 1L):n) {
-    nj <- sample(1:4, 1L, prob = c(.37, .3, .2, .13))   # 36.8% 的人只报 1 个码
-    y <- yb[i] + sample(16:22, 1L)
-    for (k in seq_len(nj)) {
-      dur <- sample(3:22, 1L)
-      e <- min(y + dur, 2014L)
-      if (k == nj && stats::runif(1L) < .35) e <- CODINGS$ongoing
-      add_job(i, k, y, e, sample(socs, 1L),
-              hours = sample(c(20, 30, 35, 40, 50), 1L),
-              sh = sample(0:2, 1L, prob = c(.7, .2, .1)),
-              exp_lv = sample(0:2, 1L, prob = c(.6, .25, .15)))
-      y <- (if (identical(e, CODINGS$ongoing)) 2014L else e) + sample(0:3, 1L)
-      if (y > 2013L) break
-    }
-    if (stats::runif(1L) < .5) {
-      gs <- yb[i] + sample(50:62, 1L)
-      add_gap(i, 1L, gs, CODINGS$ongoing,
-              sample(c(CODINGS$gap_retirement, 107L, 105L, 106L), 1L,
-                     prob = c(.6, .15, .15, .1)))
+  ## ── N_BRANCH+1 .. n：按参考生涯类型分层的随机生涯 ─────────────
+  ## 参数全部来自 inst/extdata/synth_calibration.json（UKB 参考队列的聚合量），
+  ## 逻辑在 R/synth-calib.R。
+  type <- rep(NA_integer_, n)
+  if (n > N_BRANCH) {
+    cal <- .synth_calibration()
+    K <- SYNTH_KNOBS
+    par <- list(Female = .synth_params(cal, "Female"), Male = .synth_params(cal, "Male"))
+    for (i in (N_BRANCH + 1L):n) {
+      sex[i] <- as.integer(stats::runif(1L) >= K$p_female)       # 0 = Female
+      P <- par[[SEXES[sex[i] + 1L]]]
+      ti <- names(P$type_prob)[sample.int(length(P$type_prob), 1L, prob = P$type_prob)]
+      type[i] <- as.integer(ti)
+      tp <- P$types[[ti]]
+      yb[i] <- if (!is.null(P$srv$birth_year)) {
+        as.integer(.draw(P$srv$birth_year))
+      } else {
+        b <- round(stats::rnorm(1L, K$birth_mean[[P$sex]], K$birth_sd))
+        as.integer(min(max(b, min(K$birth_range)), max(K$birth_range)))
+      }
+      entry[i] <- as.integer(names(K$entry_year)[sample.int(length(K$entry_year), 1L,
+                                                            prob = K$entry_year)])
+      cap <- min(entry[i] - yb[i], DEFAULTS$age_max)
+      cr <- .synth_career(P, tp, cap)
+      jb <- cr$jobs
+      for (k in seq_len(min(nrow(jb), ns))) {
+        add_job(i, k, yb[i] + jb$a0[k],
+                if (is.na(jb$a1[k])) CODINGS$ongoing else yb[i] + jb$a1[k],
+                jb$soc[k], hours = jb$hours[k], sh = jb$sh[k],
+                exp_lv = cr$expo[k, ], hc = jb$hcat[k], br = jb$breath[k])
+      }
+      gp <- cr$gaps
+      for (k in seq_len(min(nrow(gp), ns))) {
+        add_gap(i, k, yb[i] + gp$a0[k],
+                if (is.na(gp$a1[k])) CODINGS$ongoing else yb[i] + gp$a1[k],
+                gp$code[k])
+      }
     }
   }
 
@@ -222,7 +275,7 @@ ukb_synth <- function(n = 200L, seed = 42L, max_slots = 12L) {
     data.table::as.data.table(m)
   }
   out <- data.table::data.table(
-    eid = c(9000000L + seq_len(n - (n > N_BRANCH)),
+    eid = c(SYNTH_EID0 + seq_len(n - (n > N_BRANCH)),
             if (n > N_BRANCH) SHOWCASE$eid),
     Year_of_birth__0_0 = yb,
     Sex__0_0 = sex,
@@ -249,5 +302,9 @@ ukb_synth <- function(n = 200L, seed = 42L, max_slots = 12L) {
     "13 long blank inside window"
   )
   attr(out, "showcase_eid") <- if (n > N_BRANCH) SHOWCASE$eid else NA_integer_
+  ## 随机段每人抽到的参考类型（手工的边界情形与展示那人为 NA）。
+  ## 这是**生成时用的标签**，不是 ukb_typology() 在这批人上会得到的分区。
+  if (n > N_BRANCH) type[n] <- NA_integer_
+  attr(out, "reference_type") <- type
   out[]
 }
